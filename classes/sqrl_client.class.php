@@ -11,6 +11,7 @@
  * Interface to sqrl_client class
  */
 interface sqrl_client_api {
+
     //compound functions
 
     //get functions
