@@ -67,7 +67,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     protected $op       =   '';//Current opperation (??)
 
     //Declair valid exception codes
-    public static $exceptions = array(
+    protected static $exceptions = array(
         'nutStLen'      =>  'Nut string length incorrect: ',
         'nutStChk'      =>  'Nut status check failed: @thisStatus != @chkStatus',
         'nutFeUrl'      =>  'Nut missing from GET request',
@@ -164,7 +164,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         catch(NutTestException $e)//exceptions we throw
         {
             //TBD use the generated code as passback and trigger
-            $this->errorCode = $e->getGpde();
+            $this->errorCode = $e->getCode();
             $this->msg = $e->getMessage();
         }
         /*
@@ -194,7 +194,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         catch(NutTestException $e)//exceptions we throw
         {
             //TBD use the generated code as passback and trigger
-            $this->errorCode = $e->getGpde();
+            $this->errorCode = $e->getCode();
             $this->msg = $e->getMessage();
         }
         /*
