@@ -3,6 +3,11 @@
  * @author ramriot
  */
 
+/** build this for thowing and catching later
+ * requires include of sqrl_exceptions.class.php
+ */
+class NutTestException extends CustomException {}
+ 
  /**
   * See end for useage examples
   */
@@ -19,7 +24,6 @@ interface sqrl_nut_api {
     function get_encoded($cookie);//Get encoded nut string set arg to true for cookie
     function get_status();//Get operation status
     function get_msgs();//Get any debugging messages
-    function is_clean();//Test for clean object
     function is_error();//Is there an operational error present
     function get_time();//Get timestamp from nut
     function get_op_params();//get an array of all stored operational parameters 
@@ -46,8 +50,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     //status constants
     const STATUS_VALID      = 'validated';
     const STATUS_INVALID    = 'invalid';
-    const STATUS_BUILD      = 'built';
+    const STATUS_BUILT      = 'built';
     const STATUS_FETCH      = 'fetched';
+    const STATUS_DECODED    = 'decoded';
     const STATUS_NOCOOKIE   = 'nocookie';
     //internal variables
     protected $raw      =   array();//raw nut parameters assoc key url/cookie
@@ -55,11 +60,30 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     protected $nut      =   array();//encrypted nut strings assoc key url/cookie
     protected $params   =   array();//other parameters for storage in cache
     protected $error    =   FALSE;//Error flag
+    protected $errorCode=   0;//Error code
     protected $msg      =   array();//Error messages
     protected $clean    =   TRUE;//Clean object flag
     protected $status   =   '';//Current object status string
     protected $op       =   '';//Current opperation (??)
 
+    //Declair valid exception codes
+    public static $exceptions = array(
+        'nutStLen'      =>  'Nut string length incorrect: ',
+        'nutStChk'      =>  'Nut status check failed: @thisStatus != @chkStatus',
+        'nutFeUrl'      =>  'Nut missing from GET request',
+        'nutFeCookie'   =>  'Nut missing from COOKIE request',
+        'nutRawMatch'   =>  'Nut in url and cookie raw parameter arrays do not match',
+        'nutEncMatch'   =>  'Nut in url and cookie encoded strings do not match',
+        'nutExpired'    =>  'Nut time validity expired',
+        'nutDirty'      =>  'Clean nut expected dirty nut found',
+        'nutClean'      =>  'Dirty nut expected clean nut found',
+    );
+    
+    private function throw_new_nut_exception($errorCode, $tokens = array()) {
+        $errorMsg = $this->format_string($this->exceptions[$errorCode], $tokens);
+        throw new NutTestException($errorMsg , $errorCode);    
+    }
+    
 
     /**
      * **** All these abstract methods must be present in child classes
@@ -84,6 +108,105 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
      */
     abstract protected function get_named_counter($name);
 
+    /**
+     * Build and return a complete nut object
+     */
+    public function build_nuts($params = array())    {
+        //this operation to be done against a clean object only
+        try{
+            $this->is_clean();
+            $this->clean = FALSE;
+            $this->set_op_params($params);
+            $this->source_raw_nuts();
+            $this->encode_raw_nuts();
+            $this->encrypt();
+            $this->cache_set();
+            $this->set_cookie();
+            $this->status = self::STATUS_BUILT;
+        }
+        catch(NutTestException $e)//exceptions we throw
+        {
+            //TBD use the generated code as passback and trigger
+            $this->errorCode = $e->getCode();
+            $this->msg = $e->getMessage();
+        }
+        //Don't catch standart exceptions
+        /*
+        catch(Exception $e)//exceptions php throws
+        {
+            echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
+        }
+        */
+        //If PHP >=5.3 a finally clause can be added here to catch rest for now we let it drop through
+        return $this;
+    }
+
+    /**
+     * Get nut from url and cookie parameters
+     */
+    public function fetch_nuts($cookie_expected = FALSE)   {
+        //this operation to be done against a clean object only
+        try{
+            $this->is_clean();
+            $this->clean = FALSE;
+            $this->status = self::STATUS_FETCH;
+            //set value for nut in url
+            $this->nut['url']    = fetch_url_nut();
+            if($cookie_expected)
+            {
+                $this->nut['cookie'] = fetch_cookie_nut();
+            }
+            $this->decrypt($cookie_expected);
+            $this->decode_encoded_nuts($cookie_expected);
+            $this->cache_get();
+            $this->status = self::STATUS_DECODED;
+        }
+        catch(NutTestException $e)//exceptions we throw
+        {
+            //TBD use the generated code as passback and trigger
+            $this->errorCode = $e->getGpde();
+            $this->msg = $e->getMessage();
+        }
+        /*
+        catch(Exception $e)//exceptions php throws
+        {
+            echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
+        }
+        */
+        //If PHP >=5.3 a finally clause can be added here to catch rest for now we let it drop through
+        return $this;
+    }
+    
+    public function is_valid_nuts($cookie_expected) {
+        try{
+            $this->is_dirty();
+            //check status
+            $this->is_nut_status(self::STATUS_DECODED);
+            //check for expired nut in url
+            $this->is_raw_nut_expired(self::SELECT_URL);
+            //if cookie expected
+            if($cookie_expected)
+            {
+                $this->is_raw_nut_expired(self::SELECT_COOKIE);
+                $this->is_match_encoded_nuts();
+            }
+        }
+        catch(NutTestException $e)//exceptions we throw
+        {
+            //TBD use the generated code as passback and trigger
+            $this->errorCode = $e->getGpde();
+            $this->msg = $e->getMessage();
+        }
+        /*
+        catch(Exception $e)//exceptions php throws
+        {
+            echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
+        }
+        */
+        //If PHP >=5.3 a finally clause can be added here to catch rest for now we let it drop through
+        return $this;
+    }
+    
     public function source_raw_nuts()    {
         $this->raw['url'] = array(
             'time'      =>  $_SERVER['REQUEST_TIME'],
@@ -96,6 +219,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         return $this;
     }
     
+    /**
+     * encode raw nut array into a byte string
+     */
     public function encode_raw_nuts()    {
         $keys = array('cookie','url');
         foreach($keys as $key)  {
@@ -107,12 +233,16 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         return $this;
     }
 
-    //decodes nut to original data.
-    public function decode_encoded_nuts() {
-        $keys = array('cookie','url');
+    /**
+     * decode encoded byte string into array parts
+     */
+    public function decode_encoded_nuts($cookie_expected) {
+        $keys = array('url');
+        if($cookie_expected) $keys[] = 'cookie';
         foreach($keys as $key)  {
             $ref = & $this->encoded;
-            if(!empty($ref[$key]))
+            //test byte string
+            if(strlen($ref[$key]) == 16)
             {
                 $this->raw[$key] = array(
                   'time'    => $this->decode_time($ref[$key]),
@@ -121,10 +251,14 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
                   'random'   => $this->decode_random($ref[$key]),
                 );
             }
+            else
+            {
+                throw_new_nut_exception('nutStLen', array('@len'=>strlen($ref[$key])));
+            }
         }
         return $this;
     }
-    
+        
     private function decode_time($bytes)   {
         $output = unpack('L', $this->_bytes_extract($bytes, 0, 4));
         return array_shift($output);
@@ -149,7 +283,34 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         setcookie('sqrl', $this->nut['cookie'], $_SERVER['REQUEST_TIME'] + self::NUT_LIFETIME, '/', $this->get_base_url());
         return $this;
     }
-
+    
+    /*
+     * 
+     */
+    private function is_nut_status($status) {
+        if($this->status !== $status)   {
+            throw_new_nut_exception('nutStChk', array('@thisStatus' => $this->status, '@chkStatus' => $status));
+        }
+    }
+    
+    /*
+     * fetch nut from url and test return
+     */
+    public function fetch_url_nut()  {
+        $nut = isset($_GET['nut'])?$_GET['nut']:FALSE;
+        if(!$nut) throw_new_nut_exception('nutFeUrl');
+        return $nut;
+    }
+    
+    /*
+     * fetch nut from cookie and test return
+     */
+    public function fetch_cookie_nut()  {
+        $nut = isset($_COOKIE['sqrl'])?$_COOKIE['sqrl']:'';
+        if(!$nut) throw_new_nut_exception('nutFeCookie');
+        return $nut;
+    }
+    
     /*
      * function to time safe compare raw nuts
      */
@@ -158,23 +319,14 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         foreach ($this->raw['url'] as $key => $value) {
             if ($this->raw['cookie'][$key] != $value) {
                 $error = TRUE;
-                // Nuts don't match, so we reject this request too.
-                //$this->error = TRUE;
-                //$this->msg[] = array(self::VALIDATION_FAILED, '');//TBD add meaningful words here
                 break;
             }
         }
-        /*
-        if(!$this->error)   {
-            $this->status = self::STATUS_VALID;
-            $this->cache_get();
-            if (empty($this->params)) {
-                $this->params['op'] = 'login';
-            }
+        if($error)
+        {
+            throw_new_nut_exception('nutRawMatch');
         }
         return $this;
-        */
-        return $error;
     }
     
     /*
@@ -183,29 +335,24 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     public function is_match_encoded_nuts()     {
         $str_url    = $this->encoded['url'];
         $str_cookie = $this->encoded['cookie'];
-        $valid = $this->time_safe_strcomp($str_url, $str_cookie);
-        return $valid;
-    /*
-        if($valid)   {
-            $this->status = self::STATUS_VALID;
-            $this->cache_get();
-            if (empty($this->params)) {
-                $this->params['op'] = 'login';
-            }
-        } else {
-            $this->error = TRUE;
-            $this->msg[] = array(self::VALIDATION_FAILED, '');//TBD add meaningful words here
+        if(!$this->time_safe_strcomp($str_url, $str_cookie))
+        {
+            throw_new_nut_exception('nutEncMatch');
         }
         return $this;
-    */
     }
     
     /**
      * function to check if decoded nut is expired
      */
     public function is_raw_nut_expired($cookie)    {
+        $type = $cookie?'cookie':'url';
         $nut = get_raw_nut($cookie);
-        return ($nut['time'] >= $_SERVER['REQUEST_TIME']);
+        if ($nut['time'] < $_SERVER['REQUEST_TIME'])
+        {
+            throw_new_nut_exception('nutExpired');
+        }
+        return $this;
     }
     
     /**
@@ -218,21 +365,20 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
      * @param string $value
      * @return object
      */
-    public function set_op_params($key = NULL, $value = NULL) {
-      if (isset($key) && isset($value)) {
+    private function set_op_param($key = '', $value = '') {
+      if (!empty($key)) {
         $this->params[$key] = $value;
       }
-    /*
-      else {
-        return array(
-          'op' => $this->get_op(),
-          'params' => $this->params,
-        );
-      }
-      */
       return $this;
     }
 
+    private function set_op_params($params = array()) {
+        foreach($params as $key => $value)    {
+            set_op_param($key, $value);
+        }
+        return $this;
+    }
+    
     /**
      * Getter for additional parameters that will get integrated into
      * the NUT. This is useful so that the request from the SQRL client will contain
@@ -241,8 +387,8 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
      *
      * @return array
      */
-    public function get_op_params($key = null) {
-        if(null == $key)    {
+    public function get_op_param($key = null) {
+        if(null === $key)    {
             return $this->params;
         }
         return $this->params[$key];
@@ -283,7 +429,16 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
      * Return clean property
      */
     public function is_clean()   {
-        return $this->clean;
+        if(!$this->clean)    throw_new_nut_exception('nutDirty');
+        return $this;
+    }
+    
+    /**
+     * Return clean property
+     */
+    public function is_dirty()   {
+        if($this->clean)    throw_new_nut_exception('nutClean');
+        return $this;
     }
     
     /**
@@ -292,14 +447,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     public function get_status()    {
         return $this->status;
     }
-    
-    /**
-     * Return error property
-     */
-    public function is_error()    {
-        return $this->error;
-    }
-    
+        
     /**
      * Return error messages array
      */
@@ -308,41 +456,13 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     }
     
     /**
-     * Get nut from url and cookie parameters
+     * Return error messages array
      */
-    public function fetch_nuts()   {
-        if($this->clean)   {
-            $this->clean = FALSE;
-            $this->status = self::STATUS_FETCH;
-            //set value for nut in url
-            $this->nut['url']    = isset($_GET['nut'])?$_GET['nut']:'';
-            $this->nut['cookie'] = isset($_COOKIE['sqrl'])?$_COOKIE['sqrl']:'';
-            $this->decrypt();
-            $this->decode();
-        } else {
-            trigger_error('fetch_nuts called on unclean instance sqrl status: '.$this->status);
-        }
-        return $this;
+    public function get_errorCode()    {
+        return $this->errorCode;
     }
+
     
-    /**
-     * Build and return a complete nut object
-     */
-    public function build_nuts()    {
-        if($this->clean)   {
-            $this->clean = FALSE;
-            $this->source_raw_nuts();
-            $this->encode_raw_nuts();
-            $this->encrypt();
-            $this->set_cookie();
-            //this assumes $params already set by prior call
-            $this->cache_set();
-            $this->status = self::STATUS_BUILD;
-        } else {
-            trigger_error('build_nuts called on unclean instance sqrl status: '.$this->status);
-        }
-        return $this;
-    }
 }
 
 /**
@@ -359,13 +479,8 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
  //Build a new nut from system parameters
  /*
- $nut = sqrl_instance::get_instance('sqrl_nut_drupal7');
- if(!$nut->is_clean()) {//Optional error test for unclean instance}
- $nut->set_op_params($key, $value);//Needs to be done before build sets cache
- $nut->build();
- if($nut->is_error())   {//Test for any operational errors
-    $msgs =$nut->get_msgs();//fetch any debugging messages
- }
+ $nut = sqrl_instance::get_instance('sqrl_nut');
+ $nut->build($params);
  $nut_for_url = $nut->get_nut(FALSE);
  //Nut for cookie already stored in this version, may alias later
  */
@@ -373,10 +488,8 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
  //Fetch nut from client request and vlaidate
  /*
  $nut = sqrl_instance::get_instance('sqrl_nut_drupal7');
- if(!$nut->is_clean()) {//Optional error test for unclean instance}
  $nut->fetch();
- $op_params = $nut->get_op_params();//Needs to be done after fetch
- if($nut->is_error())   {//Test for any operational errors
+ if($nut->validate_nuts($cookie_expected))   {
     $msgs =$nut->get_msgs();//fetch any debugging messages
  }
  */

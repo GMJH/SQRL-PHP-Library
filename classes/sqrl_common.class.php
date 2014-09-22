@@ -6,6 +6,37 @@
  */
 abstract class sqrl_common
 {
+    /**
+     * helper function to do token replacement in strings
+     */
+    private function format_string($string, array $args = array()) {
+        // Transform arguments before inserting them.
+        foreach ($args as $key => $value) {
+            switch ($key[0]) {
+                case '@':
+                    // Escaped only.
+                    $args[$key] = $this->check_plain($value);
+                    break;
+                case '%':
+                default:
+                    // Escaped and placeholder.
+                    $args[$key] = $this->placeholder($value);
+                    break;
+                case '!':
+                    // Pass-through.
+            }
+        }
+        return strtr($string, $args);
+    }
+    
+    private function check_plain($text) {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+    
+    private function placeholder($text) {
+        return '<em class="placeholder">' . $this->check_plain($text) . '</em>';
+    }
+    
     /**helper function to fetch the client ip address allowing for
      * several possible server network configurations
      * @return IPv4 address
