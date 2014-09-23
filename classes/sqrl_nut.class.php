@@ -18,9 +18,9 @@ interface sqrl_nut_api {
     //test methods
     function is_valid_nuts($cookie_expected = FALSE);
     //Get methods
-    function get_encrypted_nut($cookie = FALSE);
-    function get_encoded_nut($cookie = FALSE);
-    function get_raw_nut($cookie = FALSE);
+    function get_encrypted_nut($key);
+    function get_encoded_nut($key);
+    function get_raw_nut($key);
     function get_status();//Get operation status
     function get_msg();//Get any debugging message
     function is_exception();//Is there an operational exception present
