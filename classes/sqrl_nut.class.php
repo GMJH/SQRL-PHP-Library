@@ -8,29 +8,23 @@
  */
 class NutTestException extends CustomException {}
  
- /**
-  * See end for useage examples
-  */
- 
 /**
  * Interface to sqrl_nut class
  */
 interface sqrl_nut_api {
-    //compound functions
-    function build();//Build a new nut object
-    function fetch();//Fetch nut from client request and validate
-    //get functions
-    function get_nut($cookie);//Get nut string set arg to true for cookie
-    function get_encoded($cookie);//Get encoded nut string set arg to true for cookie
+    //compound methods
+    function build_nuts();//Build a new nut object
+    function fetch_nuts();//Fetch nut from client request and validate
+    //test methods
+    function is_valid_nuts($cookie_expected = FALSE);
+    //Get methods
+    function get_encrypted_nut($cookie = FALSE);
+    function get_encoded_nut($cookie = FALSE);
+    function get_raw_nut($cookie = FALSE);
     function get_status();//Get operation status
-    function get_msgs();//Get any debugging messages
-    function is_error();//Is there an operational error present
-    function get_time();//Get timestamp from nut
-    function get_op_params();//get an array of all stored operational parameters 
-    function set_op_params($key, $value);//Store key value pairs for later offline storage and use
-    //test functions
-    function validate();//Decode nut and cookie and validate all parts
-    function validate_encoded();//Validation of nut without decoding string
+    function get_msg();//Get any debugging message
+    function is_exception();//Is there an operational exception present
+    function get_op_param($key = null);
 }
 
 /**
@@ -41,12 +35,9 @@ interface sqrl_nut_api {
  */
 abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     const NUT_LIFETIME      = 600;
-    //error constants
-    const NUT_EXISTS        = 1;
-    const VALIDATION_FAILED = 2;
     //selector constants
-    const SELECT_COOKIE     = 1;
-    const SELECT_URL        = 0;
+    const SELECT_COOKIE     = 'cookie';
+    const SELECT_URL        = 'url';
     //status constants
     const STATUS_VALID      = 'validated';
     const STATUS_INVALID    = 'invalid';
@@ -66,7 +57,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     protected $status   =   '';//Current object status string
     protected $op       =   '';//Current opperation (??)
 
-    //Declair valid exception codes
+    //Declare valid exception codes
     protected static $exceptions = array(
         'nutStLen'      =>  'Nut string length incorrect: ',
         'nutStChk'      =>  'Nut status check failed: @thisStatus != @chkStatus',
@@ -77,7 +68,16 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         'nutExpired'    =>  'Nut time validity expired',
         'nutDirty'      =>  'Clean nut expected dirty nut found',
         'nutClean'      =>  'Dirty nut expected clean nut found',
+        'notNutKey'        =>  'Cookie / Nut selector not passing correct key'
     );
+    
+    private function nut_key($key)  {
+        if($key !== self::SELECT_COOKIE || $key !== self::SELECT_URL)
+        {
+            throw_new_nut_exception('notNutKey');
+        }
+        return $this;
+    }
     
     private function throw_new_nut_exception($errorCode, $tokens = array()) {
         $errorMsg = $this->format_string($this->exceptions[$errorCode], $tokens);
@@ -143,6 +143,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
     /**
      * Get nut from url and cookie parameters
+     * @param $cookie_expected Boolean
      */
     public function fetch_nuts($cookie_expected = FALSE)   {
         //this operation to be done against a clean object only
@@ -151,10 +152,10 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
             $this->clean = FALSE;
             $this->status = self::STATUS_FETCH;
             //set value for nut in url
-            $this->nut['url']    = fetch_url_nut();
+            $this->nut[self::SELECT_URL]    = fetch_url_nut();
             if($cookie_expected)
             {
-                $this->nut['cookie'] = fetch_cookie_nut();
+                $this->nut[self::SELECT_COOKIE] = fetch_cookie_nut();
             }
             $this->decrypt($cookie_expected);
             $this->decode_encoded_nuts($cookie_expected);
@@ -206,24 +207,95 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         //If PHP >=5.3 a finally clause can be added here to catch rest for now we let it drop through
         return $this;
     }
+
+    /**
+     * Return encrypted nut
+     * @param $key constant for selection
+     * @return URL safe String
+     */
+    public function get_encrypted_nut($key)   {
+        $this->nut_key($key);
+        return $this->nut[$key];
+    }
     
-    public function source_raw_nuts()    {
-        $this->raw['url'] = array(
+    /**
+     * Return encoded nut / normally both url and cookie the same
+     * @param $key constant for selection
+     * @return Byte String
+     */
+    public function get_encoded_nut($key)   {
+        $this->nut_key($key);
+        return $this->encoded[$key];
+    }
+    
+    /**
+     * Return raw nut array
+     * @param $key constant for selection
+     * @return Array
+     */
+    public function get_raw_nut($key)   {
+        $this->nut_key($key);
+        return $this->raw[$key];
+    }
+    
+    /**
+     * Return status property
+     */
+    public function get_status()    {
+        return $this->status;
+    }
+        
+    /**
+     * Return error messages string
+     */
+    public function get_msg()    {
+        return $this->msg;
+    }
+    
+    /**
+     * Return error messages code
+     */
+    public function get_errorCode()    {
+        return $this->errorCode;
+    }
+    
+    public function is_exception()  {
+        return $this->errorCode?TRUE:FALSE;
+    }
+    
+    /**
+     * Getter for additional parameters that will get integrated into
+     * the NUT. This is useful so that the request from the SQRL client
+     * will contain those extra parameters as the server may need them
+     * to perform the required operation associated with the SQRL request.
+     * @param $key String Key used for saved parameter or leave empty for
+     * all parameters as array
+     * @return String for a provided key and an array for empty
+     */
+    public function get_op_param($key = null) {
+        if(null === $key)    {
+            return $this->params;
+        }
+        return $this->params[$key];
+    }
+    
+    private function source_raw_nuts()    {
+        $this->raw[self::SELECT_URL] = array(
             'time'      =>  $_SERVER['REQUEST_TIME'],
             'ip'        =>  $this->_get_ip_address(),
             'counter'   =>  $this->get_named_counter('sqrl_nut'),
             'random'    =>  $this->_get_random_bytes(4),
         );
         //clone raw url data to raw cookie
-        $this->raw['cookie']    =   $this->raw['url'];
+        $this->raw[self::SELECT_COOKIE]    =   $this->raw[self::SELECT_URL];
         return $this;
     }
     
     /**
      * encode raw nut array into a byte string
      */
-    public function encode_raw_nuts()    {
-        $keys = array('cookie','url');
+    private function encode_raw_nuts()    {
+        $keys = array( self::SELECT_COOKIE, self::SELECT_URL );
         foreach($keys as $key)  {
             $ref = & $this->raw[$key];
             //format bytes
@@ -236,9 +308,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     /**
      * decode encoded byte string into array parts
      */
-    public function decode_encoded_nuts($cookie_expected) {
-        $keys = array('url');
-        if($cookie_expected) $keys[] = 'cookie';
+    private function decode_encoded_nuts($cookie_expected) {
+        $keys = array(self::SELECT_URL);
+        if($cookie_expected) $keys[] = self::SELECT_COOKIE;
         foreach($keys as $key)  {
             $ref = & $this->encoded;
             //test byte string
@@ -279,45 +351,43 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         return $output;
     }
     
-    public function set_cookie()   {
-        setcookie('sqrl', $this->nut['cookie'], $_SERVER['REQUEST_TIME'] + self::NUT_LIFETIME, '/', $this->get_base_url());
+    private function set_cookie()   {
+        setcookie('sqrl', $this->nut[self::SELECT_COOKIE], $_SERVER['REQUEST_TIME'] + self::NUT_LIFETIME, '/', $this->get_base_url());
         return $this;
     }
     
-    /*
-     * 
-     */
     private function is_nut_status($status) {
         if($this->status !== $status)   {
             throw_new_nut_exception('nutStChk', array('@thisStatus' => $this->status, '@chkStatus' => $status));
         }
     }
     
-    /*
-     * fetch nut from url and test return
-     */
-    public function fetch_url_nut()  {
+    private function is_clean()   {
+        if(!$this->clean)    throw_new_nut_exception('nutDirty');
+        return $this;
+    }
+    
+    private function is_dirty()   {
+        if($this->clean)    throw_new_nut_exception('nutClean');
+        return $this;
+    }
+
+    private function fetch_url_nut()  {
         $nut = isset($_GET['nut'])?$_GET['nut']:FALSE;
         if(!$nut) throw_new_nut_exception('nutFeUrl');
         return $nut;
     }
     
-    /*
-     * fetch nut from cookie and test return
-     */
-    public function fetch_cookie_nut()  {
+    private function fetch_cookie_nut()  {
         $nut = isset($_COOKIE['sqrl'])?$_COOKIE['sqrl']:'';
         if(!$nut) throw_new_nut_exception('nutFeCookie');
         return $nut;
     }
     
-    /*
-     * function to time safe compare raw nuts
-     */
-    public function is_match_raw_nuts()     {
+    private function is_match_raw_nuts()     {
         $error = FALSE;
-        foreach ($this->raw['url'] as $key => $value) {
-            if ($this->raw['cookie'][$key] != $value) {
+        foreach ($this->raw[self::SELECT_URL] as $key => $value) {
+            if ($this->raw[self::SELECT_COOKIE][$key] != $value) {
                 $error = TRUE;
                 break;
             }
@@ -329,12 +399,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         return $this;
     }
     
-    /*
-     * function to time safe compare encoded nuts
-     */
-    public function is_match_encoded_nuts()     {
-        $str_url    = $this->encoded['url'];
-        $str_cookie = $this->encoded['cookie'];
+    private function is_match_encoded_nuts()     {
+        $str_url    = $this->encoded[self::SELECT_URL];
+        $str_cookie = $this->encoded[self::SELECT_COOKIE];
         if(!$this->time_safe_strcomp($str_url, $str_cookie))
         {
             throw_new_nut_exception('nutEncMatch');
@@ -342,12 +409,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         return $this;
     }
     
-    /**
-     * function to check if decoded nut is expired
-     */
-    public function is_raw_nut_expired($cookie)    {
-        $type = $cookie?'cookie':'url';
-        $nut = get_raw_nut($cookie);
+    private function is_raw_nut_expired($key)    {
+        $this->nut_key($key);
+        $nut = get_raw_nut($key);
         if ($nut['time'] < $_SERVER['REQUEST_TIME'])
         {
             throw_new_nut_exception('nutExpired');
@@ -377,92 +441,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
             set_op_param($key, $value);
         }
         return $this;
-    }
-    
-    /**
-     * Getter for additional parameters that will get integrated into
-     * the NUT. This is useful so that the request from the SQRL client will contain
-     * those extra parameters as the server may need them to perform the required
-     * operation associated with the SQRL request.
-     *
-     * @return array
-     */
-    public function get_op_param($key = null) {
-        if(null === $key)    {
-            return $this->params;
-        }
-        return $this->params[$key];
-    }
-
-    /**
-     * Return encrypted nut defaults to URL or set $cookie to TRUE for cookie
-     */
-    public function get_encrypted_nut($cookie = FALSE)   {
-        $key = $cookie?'cookie':'url';
-        return $this->nut[$key];
-    }
-    
-    /**
-     * Return encrypted nut defaults to URL or set $cookie to TRUE for cookie
-     */
-    public function get_encoded_nut($cookie = FALSE)   {
-        $key = $cookie?'cookie':'url';
-        return $this->encoded[$key];
-    }
-    
-    /**
-     * Return encrypted nut defaults to URL or set $cookie to TRUE for cookie
-     */
-    public function get_raw_nut($cookie = FALSE)   {
-        $key = $cookie?'cookie':'url';
-        return $this->raw[$key];
-    }
-    
-    /**
-     * Return uid after authentication default 0
-     */
-    public function get_uid()   {
-        return $this->uid;
-    }
-    
-    /**
-     * Return clean property
-     */
-    public function is_clean()   {
-        if(!$this->clean)    throw_new_nut_exception('nutDirty');
-        return $this;
-    }
-    
-    /**
-     * Return clean property
-     */
-    public function is_dirty()   {
-        if($this->clean)    throw_new_nut_exception('nutClean');
-        return $this;
-    }
-    
-    /**
-     * Return status property
-     */
-    public function get_status()    {
-        return $this->status;
-    }
-        
-    /**
-     * Return error messages array
-     */
-    public function get_msgs()    {
-        return $this->msg;
-    }
-    
-    /**
-     * Return error messages array
-     */
-    public function get_errorCode()    {
-        return $this->errorCode;
-    }
-
-    
+    }    
 }
 
 /**

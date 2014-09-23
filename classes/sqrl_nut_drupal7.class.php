@@ -21,7 +21,7 @@ class sqrl_nut_drupal7 extends sqrl_nut {
     //take $this->encoded => $this->nut
     /* Required dependancy on drupal aes module configured by sqrl module*/ 
     protected function encrypt() {
-        $keys = array(0=>'url',1=>'cookie');
+        $keys = array(0=>parent::SELECT_URL,1=>parent::SELECT_COOKIE);
         foreach($keys as $cookie=>$keys) {
             $ref = & $this->encoded[$key];
             $this->nut[$key] = sqrl_aes_encrypt($ref, $cookie);
@@ -32,7 +32,7 @@ class sqrl_nut_drupal7 extends sqrl_nut {
     //take $this->nut => $this->encoded
     /* Required dependancy on drupal aes module configured by sqrl module*/ 
     public function decrypt($cookie) {
-        $keys = array(0=>'url',1=>'cookie');
+        $keys = array(0=>parent::SELECT_URL,1=>parent::SELECT_COOKIE);
         foreach($keys as $cookie=>$keys) {
             $ref = & $this->nut[$key];
             $this->encoded[$key] = sqrl_aes_decrypt($ref, $cookie);
@@ -49,7 +49,7 @@ class sqrl_nut_drupal7 extends sqrl_nut {
     //set a persistent cache
     /* Use D7 cache process for storage between requests */
     protected function cache_set()    {
-        $cid = 'SQRL:NUT:PARAMS:' . $this->nut['url'];
+        $cid = 'SQRL:NUT:PARAMS:' . $this->nut[parent::SELECT_URL];
         cache_set($cid, $this->params, 'cache', $_SERVER['REQUEST_TIME'] + self::NUT_LIFETIME);
         return $this;
     }
@@ -57,7 +57,7 @@ class sqrl_nut_drupal7 extends sqrl_nut {
     //get a named cache item
     /* Use D7 cache process for storage between requests */
     protected function cache_get()    {
-        $cid = 'SQRL:NUT:PARAMS:' . $this->nut['url'];
+        $cid = 'SQRL:NUT:PARAMS:' . $this->nut[parent::SELECT_URL];
         $this->params = cache_get($cid, 'cache');
         return $this;
     }
