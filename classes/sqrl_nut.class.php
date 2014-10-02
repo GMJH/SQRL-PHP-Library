@@ -88,20 +88,40 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     /**
      * **** All these abstract methods must be present in child classes
      */
-    //take $this->encoded => $this->nut
-    abstract protected function encrypt();
-    //take $this->nut => $this->encoded
-    abstract protected function decrypt();
-    //return the base url of the site
+    
+    /**
+     * required override
+     * abstract method to return an encrypted string
+     */
+    abstract protected function encrypt($data, $part);
+    /**
+     * required override
+     * abstract method to return an decrypted string
+     * @param $data String encrypted string
+     * @param $part String either (parent::SELECT_URL or parent::SELECT_COOKIE)
+     */
+    abstract protected function decrypt($data, $part);
+    /**
+     * required override
+     * abstract method to return the base url of the site
+     * @param $data String plane text string
+     * @param $part String either (parent::SELECT_URL or parent::SELECT_COOKIE)
+     */
     abstract protected function get_base_url();
-    //set a persistent cache
+    /**
+     * required override
+     * abstract method to set a persistent cache
+     */
     abstract protected function cache_set();
-    //get a named cache item
+    /**
+     * required override
+     * abstract method to get a named cache item
+     */
     abstract protected function cache_get();
     /**
+     * required override
      * abstract method to implement named 32 bit wrapping
-     * counters this function is to be overriden by higher
-     * level implementor class.
+     * counters.
      * @param $name String: machine readable string =<255
      *  characters long ot act as counter key
      * @return Int: new count value
@@ -119,7 +139,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
             $this->set_op_params($params);
             $this->source_raw_nuts();
             $this->encode_raw_nuts();
-            $this->encrypt();
+            $this->encrypt_wrapper();
             $this->cache_set();
             $this->set_cookie();
             $this->status = self::STATUS_BUILT;
@@ -157,7 +177,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
             {
                 $this->nut[self::SELECT_COOKIE] = fetch_cookie_nut();
             }
-            $this->decrypt($cookie_expected);
+            $this->decrypt_wrapper($cookie_expected);
             $this->decode_encoded_nuts($cookie_expected);
             $this->cache_get();
             $this->status = self::STATUS_DECODED;
@@ -349,6 +369,26 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     private function decode_random($bytes)   {
         $output = $this->_bytes_extract($bytes, 12, 4);
         return $output;
+    }
+    
+    private function encrypt_wrapper()  {
+        $keys = array(parent::SELECT_URL,parent::SELECT_COOKIE);
+        foreach($keys as $keys) {
+            $ref = & $this->encoded[$key];
+            $data = $this->encrypt($ref, $key);
+            $this->nut[$key] = strtr($data, array('+' => '-', '/' => '_', '=' => ''));
+        }
+        return $this;
+    }
+    
+    private function decrypt_wrapper()  {
+        $keys = array(parent::SELECT_URL,parent::SELECT_COOKIE);
+        foreach($keys as $keys) {
+            $ref = & $this->nut[$key];
+            $data = strtr($ref, array('-' => '+', '_' => '/')) . '==';
+            $this->encoded[$key] = $this->decrypt($data, $key);
+        }
+        return $this;
     }
     
     private function set_cookie()   {

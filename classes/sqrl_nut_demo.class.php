@@ -11,47 +11,45 @@
  * **** frameworks.
  * **** 
  */
-class sqrl_nut_drupal7 extends sqrl_nut {
+class sqrl_nut_my_demo extends sqrl_nut {
     //constants can be overriden
-    const NUT_LIFETIME      = 300;
-    
-    protected $crypt        = array();
+    const NUT_LIFETIME      = 300;    
     /**
      * **** methods required from parent
      */
     
-    private function encrypt($data, $part) {
-        return aes_encrypt(
-                            $data,
-                            TRUE,
-                            $this->sqrl_aes_get($part, 'key'),
-                            $this->sqrl_aes_get($part, 'cipher'),
-                            $this->sqrl_aes_get($part, 'iv'),
-                            $this->sqrl_aes_get($part, 'implementation')
-                            );
-    }
-
-    private function decrypt($data, $part) {
-        return aes_decrypt(
-                           $data,
-                           TRUE,
-                           $this->sqrl_aes_get($part, 'key'),
-                           $this->sqrl_aes_get($part, 'cipher'),
-                           $this->sqrl_aes_get($part, 'iv'),
-                           $this->sqrl_aes_get($part, 'implementation')
-                           );
-    }
-    
-    private function sqrl_aes_get($key, $part) {
-        $this->nut_key($key);
-        return $this->crypt[$key][$part];
-    }
-
-    private function sqrl_aes_set($key, $crypt) {
-        $this->nut_key($key);
-        $this->crypt[$key] = $crypt;
+    //take $this->encoded => $this->nut
+    /* Required dependancy on drupal aes module configured by sqrl module*/ 
+    protected function encrypt() {
+        $keys = array(0=>parent::SELECT_URL,1=>parent::SELECT_COOKIE);
+        foreach($keys as $cookie=>$keys) {
+            $ref = & $this->encoded[$key];
+            $this->nut[$key] = $this->sqrl_aes_encrypt($ref, $cookie);
+        }
         return $this;
     }
+    
+    //take $this->nut => $this->encoded
+    /* Required dependancy on drupal aes module configured by sqrl module*/ 
+    public function decrypt($cookie) {
+        $keys = array(0=>parent::SELECT_URL,1=>parent::SELECT_COOKIE);
+        foreach($keys as $cookie=>$keys) {
+            $ref = & $this->nut[$key];
+            $this->encoded[$key] = $this->sqrl_aes_decrypt($ref, $cookie);
+        }
+        return $this;
+    }
+    
+    function sqrl_aes_encrypt($data, $cookie = TRUE) {
+        $data = aes_encrypt($data, TRUE, _sqrl_aes_get_key($cookie), _sqrl_aes_get_cipher($cookie), _sqrl_aes_get_iv($cookie), _sqrl_aes_get_implementation($cookie));
+        return strtr($data, array('+' => '-', '/' => '_', '=' => ''));
+    }
+
+    function sqrl_aes_decrypt($data, $cookie = TRUE) {
+        $data = strtr($data, array('-' => '+', '_' => '/')) . '==';
+        return aes_decrypt($data, TRUE, _sqrl_aes_get_key($cookie), _sqrl_aes_get_cipher($cookie), _sqrl_aes_get_iv($cookie), _sqrl_aes_get_implementation($cookie));
+    }
+
     
     //return the base url of the site
     /* Use local sqrl module function TBD: define universal function */
