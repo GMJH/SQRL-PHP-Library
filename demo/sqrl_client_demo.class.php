@@ -4,45 +4,20 @@
  */
 
 /**
- * See end for usage examples
- */
-
-/**
- * Interface to sqrl_client class
- */
-interface sqrl_client_api {
-
-  //compound functions
-
-  //get functions
-
-  //set functions
-
-  //test functions
-
-}
-
-/**
- * A class to encompass the processing and validation of incoming
- * SQRL POST parameters
+ * An override class for my_demo SQRL client operations
  *
  * @author ramriot
  *
  * @link
  */
-abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
-
-  protected $post = array();
-  protected $vars = array();
-  protected $sigkeys = array();
-
-  public function __construct() {
-    parent::__construct();
-    //fetch post array for processing
-    $this->post = $_POST;
-    //process post array
-    $this->process();
+class sqrl_client_my_demo extends sqrl_client {
+  /*
+  public function __construct()
+  {
+      parent::__construct();
+      return $this;
   }
+  */
 
   /**
    * https://www.grc.com/sqrl/semantics.htm: The data to be signed are the two
@@ -53,9 +28,9 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
 
     //current extent of signatures
     $signatures = array(
-      'ids' => $this->base64_decode($this->post['ids']),
-      'pids' => $this->base64_decode($this->post['pids']),
-      'urs' => $this->base64_decode($this->post['urs']),
+      'ids' => _sqrl_client_base64_decode($this->_POST['ids']),
+      'pids' => _sqrl_client_base64_decode($this->_POST['pids']),
+      'urs' => _sqrl_client_base64_decode($this->_POST['urs']),
     );
     //default vars array to be populated by processors
     $this->vars = array(
@@ -66,9 +41,9 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
         'auth' => $this->_get_server_value('HTTP_AUTHENTICATION'),
         'agent' => $this->_get_server_value('HTTP_USER_AGENT'),
       ),
-      'client' => $this->_decode_parameter($this->post['client'], 'client'),
-      'server' => $this->_decode_parameter($this->post['server'], 'server'),
-      'validation_string' => $this->post['client'] . $this->post['server'],
+      'client' => $this->_decode_parameter($this->_POST['client']),
+      'server' => $this->_decode_parameter($this->_POST['server']),
+      'validation_string' => $this->_POST['client'] . $this->_POST['server'],
       'signatures' => $signatures,
       'nut' => $_GET['nut'],
       'account' => FALSE,
@@ -76,105 +51,92 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
       'response' => array(),
       'fields' => array(),
     );
+    return $this;
   }
 
-  /**
-   * @return array
-   */
   public function get_vars() {
     return $this->vars;
   }
 
   /**
-   * Are all required signatures present.
-   *
-   * @param $sig_keys
-   *  Array of signature keys that are required or string for single
+   * Are required signatures Present.
+   * @param $sig_keys Array of signature keys that are required or string for single
    * @return Boolean False if required key/s are missing other wise return TRUE
+   * @sideffect Sets error responses for later use
    */
   public function required_keys($sig_keys) {
     $result = TRUE;
     if (is_array($sig_keys)) {
-      foreach ($sig_keys as $sig_key) {
-        if (!$this->required_key($sig_key)) {
+      foreach ($sig_keys as $key) {
+        if (!$this->required_key($sigKey)) {
           $result = FALSE;
-          break;
         }
       }
     }
     else {
-      $result = $this->required_key($sig_keys);
+      $result = $this->required_key($sigKey);
     }
     return $result;
   }
 
-  /**
-   * @param $key
-   * @param string $type
-   * @return bool
-   */
-  private function required_key($key, $type = 'sig') {
-    if (is_string($key) && strlen($key)) {
+  private function required_key($Key, $type = 'sig') {
+    if (is_string($Key) && strlen($Key)) {
       $response = TRUE;
       switch ($type) {
         case 'sig':
-          if (empty($this->vars['signature'][$key])) {
-            $this->set_message(self::format_string('Required sig @key missing', array('@key' => $key)), SQRL_MSG_ERROR);
+          if (empty($this->vars['signature'][$Key])) {
+            $this->set_message($this->t('Required sig @key Missing', array('@key' => $key)), SQRL_MSG_ERROR);
             $response = FALSE;
           }
           break;
-
         case 'pub':
-          if (empty($this->vars['client'][$key])) {
-            $this->set_message(self::format_string('Required pk @key missing', array('@key' => $key)), SQRL_MSG_ERROR);
+          if (empty($this->vars['client'][$Key])) {
+            $this->set_message($this->t('Required pk @key Missing', array('@key' => $key)), SQRL_MSG_ERROR);
             $response = FALSE;
           }
           break;
-
       }
     }
     else {
       $response = FALSE;
-      $this->set_message(self::format_string('Bad call to required_key'), SQRL_MSG_ERROR);
+      $this->set_message($this->t('Bad Call to required_keys'), SQRL_MSG_ERROR);
     }
     return $response;
   }
 
   /**
    * list all signatures present
-   *
-   * @return array
    */
   public function signatures() {
-    $sig_keys = array();
+    $sigKeys = array();
     foreach ($this->vars['signatures'] as $key => $sig) {
       if (!empty($sig)) {
-        $sig_keys[] = $key;
+        $sigKeys[] = $key;
       }
     }
-    return $sig_keys;
+    return $sigKeys;
   }
 
   /**
    * Are required signatures Present.
-   *
-   * @param $sig_key
-   * @param $pub_key
-   * @return bool False if any validation fales or true otherwise
+   * @param $sigRef Array keyed by signature key with values pk key for validation
+   * @return Boolean False if any validation fales or true otherwise
+   * @sideffect Sets error responses for later retreval
    */
+  // Signatures Validate against relevent pk and msg.
   public function validate_signature($sig_key, $pub_key) {
     //get signature
-    if (!$this->required_key($sig_key, 'sig')) {
+    if (!required_key($sig_key, 'sig')) {
       return FALSE;
     }
     $sig = $this->vars['signatures'][$sig_key];
     //get related pk
-    if (!$this->required_key($pub_key, 'pub')) {
+    if (!required_key($pub_key, 'pub')) {
       return FALSE;
     }
     $pk = $this->vars['client'][$pub_key];
     //validate
-    return $this->ed25519_checkvalid($sig, $pk);
+    return ed25519_checkvalid($sig, $msg, $pk);
   }
 
   // TODO: Check the header values.
@@ -192,41 +154,33 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
 
   }
 
-  // TODO: Validate nut
+  // Validate nut
   public function validate_nut() {
 
   }
 
-  // TODO: Validate same IP policy
+  // Validate same IP policy
   public function validate_same_ip() {
 
   }
 
-  /**
-   * @param $s
-   * @param $m
-   * @param $pk
-   * @return bool
-   * @throws Exception
-   */
-  public function validate($s, $m, $pk) {
+
+  public function checkvalid($s, $m, $pk) {
     if (strlen($s) != $this->b / 4) {
-      throw new Exception('Signature length is wrong');
+      throw new \Exception('Signature length is wrong');
     }
     if (strlen($pk) != $this->b / 8) {
-      throw new Exception('Public key length is wrong: ' . strlen($pk));
+      throw new \Exception('Public key length is wrong: ' . strlen($pk));
     }
     $R = $this->decodepoint(substr($s, 0, $this->b / 8));
     try {
       $A = $this->decodepoint($pk);
-    }
-    catch (Exception $e) {
+    } catch (\Exception $e) {
       return FALSE;
     }
     $S = $this->decodeint(substr($s, $this->b / 8, $this->b / 4));
     $h = $this->Hint($this->encodepoint($R) . $pk . $m);
 
-    return $this->scalarmult($this->b, $S) == $this->edwards($R, $this->scalarmult($A, $h));
+    return $this->scalarmult($this->B, $S) == $this->edwards($R, $this->scalarmult($A, $h));
   }
-
 }
