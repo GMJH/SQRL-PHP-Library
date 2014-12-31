@@ -1,69 +1,28 @@
 <?php
 /**
- * @author ramriot
+ * SQRL
+ *
+ * Copyright (c)
+ *
+ * Description
+ *
+ * Licence
+ *
+ * @package    SQRL
+ * @author     Jürgen Haas <juergen@paragon-es.de>
+ * @author     Gary Marriott <ramriot@gmail.com>
+ * @copyright  ...
+ * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
+ * @link       https://bitbucket.org/jurgenhaas/sqrl-php
  */
 
-/** build this for throwing and catching later
- * requires include of sqrl_exceptions.class.php
- */
-class SQRLNutException extends SQRLException {
-
-  //Declare valid exception codes
-  protected static $exceptions = array(
-    'nutStLen' => 'Nut string length incorrect: ',
-    'nutStChk' => 'Nut status check failed: @thisStatus != @chkStatus',
-    'nutFeUrl' => 'Nut missing from GET request',
-    'nutFeCookie' => 'Nut missing from COOKIE request',
-    'nutRawMatch' => 'Nut in url and cookie raw parameter arrays do not match',
-    'nutEncMatch' => 'Nut in url and cookie encoded strings do not match',
-    'nutExpired' => 'Nut time validity expired',
-    'nutDirty' => 'Clean nut expected dirty nut found',
-    'nutClean' => 'Dirty nut expected clean nut found',
-    'notNutKey' => 'Cookie / Nut selector not passing correct key'
-  );
-
-  public function __construct($error = NULL, $code = 0, $tokens = array()) {
-    $message = sqrl_common::format_string(self::$exceptions[$error], $tokens);
-    parent::__construct($message, $code);
-  }
-
-}
+namespace JurgenhaasRamriot\SQRL;
 
 /**
- * Interface to sqrl_nut class
+ * This class defines the main structure for SQRL nut building,
+ * encoding, decoding and validation.
  */
-interface sqrl_nut_api {
-  //compound methods
-  function build_nuts();//Build a new nut object
-
-  function fetch_nuts();//Fetch nut from client request and validate
-
-  //test methods
-  function is_valid_nuts($cookie_expected = FALSE);
-
-  //Get methods
-  function get_encrypted_nut($key);
-
-  function get_encoded_nut($key);
-
-  function get_raw_nut($key);
-
-  function get_status();//Get operation status
-
-  function get_msg();//Get any debugging message
-
-  function is_exception();//Is there an operational exception present
-
-  function get_op_param($key = NULL);
-}
-
-/**
- * ****
- * **** This class defines the main structure for SQRL nut building,
- * **** encoding, decoding and validation.
- * ****
- */
-abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
+abstract class Nut extends Common implements Nut_API {
   const NUT_LIFETIME = 600;
   //selector constants
   const SELECT_COOKIE = 'cookie';
@@ -87,9 +46,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   protected $status = '';//Current object status string
   protected $op = '';//Current opperation (??)
 
-  private function nut_key($key) {
+  protected function nut_key($key) {
     if ($key !== self::SELECT_COOKIE || $key !== self::SELECT_URL) {
-      throw new SQRLNutException('notNutKey');
+      throw new NutException('Cookie / Nut selector not passing correct key');
     }
     return $this;
   }
@@ -101,6 +60,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   /**
    * required override
    * abstract method to return an encrypted string
+   * @param $data
+   * @param $part
+   * @return
    */
   abstract protected function encrypt($data, $part);
 
@@ -115,8 +77,6 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   /**
    * required override
    * abstract method to return the base url of the site
-   * @param $data String plane text string
-   * @param $part String either (parent::SELECT_URL or parent::SELECT_COOKIE)
    */
   abstract protected function get_base_url();
 
@@ -144,6 +104,8 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   /**
    * Build and return a complete nut object
+   * @param array $params
+   * @return $this
    */
   public function build_nuts($params = array()) {
     //this operation to be done against a clean object only
@@ -157,7 +119,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
       $this->cache_set();
       $this->set_cookie();
       $this->status = self::STATUS_BUILT;
-    } catch (SQRLNutException $e)//exceptions we throw
+    } catch (NutException $e)//exceptions we throw
     {
       //TBD use the generated code as passback and trigger
       $this->errorCode = $e->getCode();
@@ -177,6 +139,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   /**
    * Get nut from url and cookie parameters
    * @param $cookie_expected Boolean
+   * @return $this
    */
   public function fetch_nuts($cookie_expected = FALSE) {
     //this operation to be done against a clean object only
@@ -193,7 +156,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
       $this->decode_encoded_nuts($cookie_expected);
       $this->cache_get();
       $this->status = self::STATUS_DECODED;
-    } catch (SQRLNutException $e)//exceptions we throw
+    } catch (NutException $e)//exceptions we throw
     {
       //TBD use the generated code as passback and trigger
       $this->errorCode = $e->getCode();
@@ -221,7 +184,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         $this->is_raw_nut_expired(self::SELECT_COOKIE);
         $this->is_match_encoded_nuts();
       }
-    } catch (SQRLNutException $e)//exceptions we throw
+    } catch (NutException $e)//exceptions we throw
     {
       //TBD use the generated code as passback and trigger
       $this->errorCode = $e->getCode();
@@ -239,8 +202,10 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   /**
    * Return encrypted nut
-   * @param $key constant for selection
-   * @return URL safe String
+   * @param $key
+   *  constant for selection
+   * @return string
+   *  URL safe String
    */
   public function get_encrypted_nut($key) {
     $this->nut_key($key);
@@ -249,8 +214,10 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   /**
    * Return encoded nut / normally both url and cookie the same
-   * @param $key constant for selection
-   * @return Byte String
+   * @param $key
+   *  constant for selection
+   * @return string
+   *  Byte String
    */
   public function get_encoded_nut($key) {
     $this->nut_key($key);
@@ -259,8 +226,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   /**
    * Return raw nut array
-   * @param $key constant for selection
-   * @return Array
+   * @param $key
+   *  constant for selection
+   * @return array
    */
   public function get_raw_nut($key) {
     $this->nut_key($key);
@@ -336,6 +304,9 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   /**
    * decode encoded byte string into array parts
+   * @param $cookie_expected
+   * @return $this
+   * @throws NutException
    */
   private function decode_encoded_nuts($cookie_expected) {
     $keys = array(self::SELECT_URL);
@@ -354,7 +325,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
         );
       }
       else {
-        throw new SQRLNutException('nutStLen', 0, array('@len' => strlen($ref[$key])));
+        throw new NutException(SQRL::get_message()->format('Nut string length incorrect: @len', array('@len' => strlen($ref[$key]))));
       }
     }
     return $this;
@@ -407,23 +378,23 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
 
   private function is_nut_status($status) {
     if ($this->status !== $status) {
-      throw new SQRLNutException('nutStChk', 0, array(
+      throw new NutException(SQRL::get_message()->format('Nut status check failed: @thisStatus != @chkStatus', array(
         '@thisStatus' => $this->status,
         '@chkStatus' => $status
-      ));
+      )));
     }
   }
 
   private function is_clean() {
     if (!$this->clean) {
-      throw new SQRLNutException('nutDirty');
+      throw new NutException('Clean nut expected dirty nut found');
     }
     return $this;
   }
 
   private function is_dirty() {
     if ($this->clean) {
-      throw new SQRLNutException('nutClean');
+      throw new NutException('Dirty nut expected clean nut found');
     }
     return $this;
   }
@@ -431,7 +402,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   private function fetch_url_nut() {
     $nut = isset($_GET['nut']) ? $_GET['nut'] : FALSE;
     if (!$nut) {
-      throw new SQRLNutException('nutFeUrl');
+      throw new NutException('Nut missing from GET request');
     }
     return $nut;
   }
@@ -439,7 +410,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
   private function fetch_cookie_nut() {
     $nut = isset($_COOKIE['sqrl']) ? $_COOKIE['sqrl'] : '';
     if (!$nut) {
-      throw new SQRLNutException('nutFeCookie');
+      throw new NutException('Nut missing from COOKIE request');
     }
     return $nut;
   }
@@ -453,7 +424,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
       }
     }
     if ($error) {
-      throw new SQRLNutException('nutRawMatch');
+      throw new NutException('Nut in url and cookie raw parameter arrays do not match');
     }
     return $this;
   }
@@ -462,7 +433,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     $str_url = $this->encoded[self::SELECT_URL];
     $str_cookie = $this->encoded[self::SELECT_COOKIE];
     if (!$this->time_safe_strcomp($str_url, $str_cookie)) {
-      throw new SQRLNutException('nutEncMatch');
+      throw new NutException('Nut in url and cookie encoded strings do not match');
     }
     return $this;
   }
@@ -471,7 +442,7 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     $this->nut_key($key);
     $nut = $this->get_raw_nut($key);
     if ($nut['time'] < $_SERVER['REQUEST_TIME']) {
-      throw new SQRLNutException('nutExpired');
+      throw new NutException('Nut time validity expired');
     }
     return $this;
   }
@@ -493,11 +464,131 @@ abstract class sqrl_nut extends sqrl_common implements sqrl_nut_api {
     return $this;
   }
 
+  /**
+   * @param array $params
+   * @return $this
+   */
   private function set_op_params($params = array()) {
     foreach ($params as $key => $value) {
       $this->set_op_param($key, $value);
     }
     return $this;
+  }
+
+  /**
+   * helper function to fetch the client ip address allowing for
+   * several possible server network configurations
+   *
+   * @return string
+   *  IPv4 address
+   */
+  protected function _get_ip_address() {
+    foreach (array(
+               'HTTP_CLIENT_IP',
+               'HTTP_X_FORWARDED_FOR',
+               'HTTP_X_FORWARDED',
+               'HTTP_X_CLUSTER_CLIENT_IP',
+               'HTTP_FORWARDED_FOR',
+               'HTTP_FORWARDED',
+               'REMOTE_ADDR'
+             ) as $key) {
+      if (array_key_exists($key, $_SERVER) === TRUE) {
+        foreach (explode(',', $_SERVER[$key]) as $ip_address) {
+          // Just to be safe
+          $ip_address = trim($ip_address);
+
+          if (filter_var($ip_address,
+              FILTER_VALIDATE_IP,
+              FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== FALSE) {
+            return $ip_address;
+          }
+        }
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * function got fetch a series of high entropy pseudo random bytes
+   *
+   * @param int $count
+   *  length in bytes for returned random
+   * @return string
+   *  binary string of length $count bytes
+   */
+  protected function _get_random_bytes($count) {
+    static $random_state, $bytes, $has_openssl;
+    $missing_bytes = $count - strlen($bytes);
+    if ($missing_bytes > 0) {
+      // PHP versions prior 5.3.4 experienced openssl_random_pseudo_bytes()
+      // locking on Windows and rendered it unusable.
+      if (!isset($has_openssl)) {
+        $has_openssl = version_compare(PHP_VERSION, '5.3.4', '>=') && function_exists('openssl_random_pseudo_bytes');
+      }
+      // openssl_random_pseudo_bytes() will find entropy in a system-dependent
+      // way.
+      if ($has_openssl) {
+        $bytes .= openssl_random_pseudo_bytes($missing_bytes);
+      }
+      // Else, read directly from /dev/urandom, which is available on many *nix
+      // systems and is considered cryptographically secure.
+      elseif ($fh = @fopen('/dev/urandom', 'rb')) {
+        // PHP only performs buffered reads, so in reality it will always read
+        // at least 4096 bytes. Thus, it costs nothing extra to read and store
+        // that much so as to speed any additional invocations.
+        $bytes .= fread($fh, max(4096, $missing_bytes));
+        fclose($fh);
+      }
+      // If we couldn't get enough entropy, this simple hash-based PRNG will
+      // generate a good set of pseudo-random bytes on any system.
+      // Note that it may be important that our $random_state is passed
+      // through hash() prior to being rolled into $output, that the two hash()
+      // invocations are different, and that the extra input into the first one -
+      // the microtime() - is prepended rather than appended. This is to avoid
+      // directly leaking $random_state via the $output stream, which could
+      // allow for trivial prediction of further "random" numbers.
+      if (strlen($bytes) < $count) {
+        // Initialize on the first call. The contents of $_SERVER includes a mix of
+        // user-specific and system information that varies a little with each page.
+        if (!isset($random_state)) {
+          $random_state = print_r($_SERVER, TRUE);
+          if (function_exists('getmypid')) {
+            // Further initialize with the somewhat random PHP process ID.
+            $random_state .= getmypid();
+          }
+          $bytes = '';
+        }
+
+        do {
+          $random_state = hash('sha256', microtime() . mt_rand() . $random_state);
+          $bytes .= hash('sha256', mt_rand() . $random_state, TRUE);
+        } while (strlen($bytes) < $count);
+      }
+    }
+    $output = substr($bytes, 0, $count);
+    $bytes = substr($bytes, $count);
+    return $output;
+  }
+
+  /**
+   * @param $str1
+   * @param $str2
+   * @return bool
+   */
+  protected function time_safe_strcomp($str1, $str2) {
+    $str1_len = strlen($str1);
+    $str2_len = strlen($str2);
+    if ($str1_len == 0 || $str2_len == 0) {
+      throw new \InvalidArgumentException('This function cannot safely compare against an empty given string');
+    }
+    $res = $str1_len ^ $str2_len;
+    for ($i = 0; $i < $str1_len; ++$i) {
+      $res |= ord($str1[$i % $str1_len]) ^ ord($str2[$i]);
+    }
+    if ($res === 0) {
+      return TRUE;
+    }
+    return FALSE;
   }
 
 }

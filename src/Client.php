@@ -1,36 +1,30 @@
 <?php
 /**
- * @author ramriot
+ * SQRL
+ *
+ * Copyright (c)
+ *
+ * Description
+ *
+ * Licence
+ *
+ * @package    SQRL
+ * @author     Jürgen Haas <juergen@paragon-es.de>
+ * @author     Gary Marriott <ramriot@gmail.com>
+ * @copyright  ...
+ * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
+ * @link       https://bitbucket.org/jurgenhaas/sqrl-php
  */
 
-/**
- * See end for usage examples
- */
-
-/**
- * Interface to sqrl_client class
- */
-interface sqrl_client_api {
-
-  //compound functions
-
-  //get functions
-
-  //set functions
-
-  //test functions
-
-}
+namespace JurgenhaasRamriot\SQRL;
 
 /**
  * A class to encompass the processing and validation of incoming
  * SQRL POST parameters
- *
- * @author ramriot
- *
- * @link
  */
-abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
+abstract class Client extends Common implements Client_API {
+
+  const CRLF = "\r\n";
 
   protected $post = array();
   protected $vars = array();
@@ -62,12 +56,12 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
       'http_code' => 403,
       'tif' => 0,
       'header' => array(
-        'host' => $this->_get_server_value('HTTP_HOST'),
-        'auth' => $this->_get_server_value('HTTP_AUTHENTICATION'),
-        'agent' => $this->_get_server_value('HTTP_USER_AGENT'),
+        'host' => $this->get_server_value('HTTP_HOST'),
+        'auth' => $this->get_server_value('HTTP_AUTHENTICATION'),
+        'agent' => $this->get_server_value('HTTP_USER_AGENT'),
       ),
-      'client' => $this->_decode_parameter($this->post['client'], 'client'),
-      'server' => $this->_decode_parameter($this->post['server'], 'server'),
+      'client' => $this->decode_parameter($this->post['client'], 'client'),
+      'server' => $this->decode_parameter($this->post['server'], 'server'),
       'validation_string' => $this->post['client'] . $this->post['server'],
       'signatures' => $signatures,
       'nut' => $_GET['nut'],
@@ -119,14 +113,14 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
       switch ($type) {
         case 'sig':
           if (empty($this->vars['signature'][$key])) {
-            $this->set_message(self::format_string('Required sig @key missing', array('@key' => $key)), SQRL_MSG_ERROR);
+            SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Required sig @key missing', array('@key' => $key));
             $response = FALSE;
           }
           break;
 
         case 'pub':
           if (empty($this->vars['client'][$key])) {
-            $this->set_message(self::format_string('Required pk @key missing', array('@key' => $key)), SQRL_MSG_ERROR);
+            SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Required pk @key missing', array('@key' => $key));
             $response = FALSE;
           }
           break;
@@ -135,7 +129,7 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
     }
     else {
       $response = FALSE;
-      $this->set_message(self::format_string('Bad call to required_key'), SQRL_MSG_ERROR);
+      SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Bad call to required_key');
     }
     return $response;
   }
@@ -211,10 +205,10 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
    */
   public function validate($s, $m, $pk) {
     if (strlen($s) != $this->b / 4) {
-      throw new Exception('Signature length is wrong');
+      throw new ClientException('Signature length is wrong');
     }
     if (strlen($pk) != $this->b / 8) {
-      throw new Exception('Public key length is wrong: ' . strlen($pk));
+      throw new ClientException('Public key length is wrong: ' . strlen($pk));
     }
     $R = $this->decodepoint(substr($s, 0, $this->b / 8));
     try {
@@ -227,6 +221,82 @@ abstract class sqrl_client extends sqrl_common implements sqrl_client_api {
     $h = $this->Hint($this->encodepoint($R) . $pk . $m);
 
     return $this->scalarmult($this->b, $S) == $this->edwards($R, $this->scalarmult($A, $h));
+  }
+
+  /**
+   * @param $param
+   * @param $key
+   * @return array
+   */
+  private function decode_parameter($param, $key) {
+    $string = $this->base64_decode($param);
+    $values = explode(self::CRLF, $string);
+    $vars = array();
+    foreach ($values as $value) {
+      if (!empty($value)) {
+        $parts = explode('=', $value);
+        $k = array_shift($parts);
+        $vars[$key][$k] = implode('=', $parts);
+      }
+    }
+    return $vars;
+  }
+
+  /**
+   * @param $sig
+   * @param $pk
+   * @return bool
+   */
+  protected function ed25519_checkvalid($sig, $pk) {
+    // TODO: needs implementation or external library.
+    return TRUE;
+  }
+
+  /**
+   * @param $s
+   * @return string
+   */
+  protected function encodepoint($s) {
+    // TODO: Implementation.
+    return $s;
+  }
+
+  /**
+   * @param $s
+   * @return string
+   */
+  protected function decodepoint($s) {
+    // TODO: Implementation.
+    return $s;
+  }
+
+  /**
+   * @param $s
+   * @return string
+   */
+  protected function Hint($s) {
+    // TODO: Implementation.
+    return $s;
+  }
+
+  /**
+   * @param $b
+   * @param $s
+   * @return string
+   */
+  protected function scalarmult($b, $s) {
+    // TODO: Implementation.
+    return '';
+  }
+
+  /**
+   * @param $b
+   * @param $s
+   * @return string
+   */
+  protected function edwards($b, $s) {
+    // TODO: Implementation.
+    return '';
   }
 
 }
