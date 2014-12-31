@@ -23,6 +23,8 @@ namespace JurgenhaasRamriot\SQRL;
  * encoding, decoding and validation.
  */
 abstract class Nut extends Common implements Nut_API {
+
+  const PATH_PREFIX = 'sqrl/';
   const NUT_LIFETIME = 600;
   //selector constants
   const SELECT_COOKIE = 'cookie';
@@ -35,19 +37,36 @@ abstract class Nut extends Common implements Nut_API {
   const STATUS_DECODED = 'decoded';
   const STATUS_NOCOOKIE = 'nocookie';
   //internal variables
+  protected $operation = 'login';//type of operation of this nut
+  protected $params = array();//other parameters for storage in cache
+  protected $base_url;
+  protected $url;
+  protected $scheme;
+
   protected $raw = array();//raw nut parameters assoc key url/cookie
   protected $encoded = array();//encoded nut strings assoc key url/cookie
   protected $nut = array();//encrypted nut strings assoc key url/cookie
-  protected $params = array();//other parameters for storage in cache
   protected $error = FALSE;//Error flag
   protected $errorCode = 0;//Error code
   protected $msg = array();//Error messages
   protected $clean = TRUE;//Clean object flag
   protected $status = '';//Current object status string
-  protected $op = '';//Current opperation (??)
+
+  public function __construct() {
+    $this->base_url = $this->build_base_url();
+    $this->scheme = $this->use_secure_connection() ? 'sqrl' : 'qrl';
+  }
+
+  public function use_secure_connection() {
+    return TRUE;
+  }
+
+  public function get_connection_port() {
+    return 443;
+  }
 
   protected function nut_key($key) {
-    if ($key !== self::SELECT_COOKIE || $key !== self::SELECT_URL) {
+    if ($key !== self::SELECT_COOKIE && $key !== self::SELECT_URL) {
       throw new NutException('Cookie / Nut selector not passing correct key');
     }
     return $this;
@@ -78,7 +97,11 @@ abstract class Nut extends Common implements Nut_API {
    * required override
    * abstract method to return the base url of the site
    */
-  abstract protected function get_base_url();
+  abstract protected function build_base_url();
+
+  public function get_base_url() {
+    return $this->base_url;
+  }
 
   /**
    * required override
@@ -103,37 +126,85 @@ abstract class Nut extends Common implements Nut_API {
   abstract protected function get_named_counter($name);
 
   /**
-   * Build and return a complete nut object
-   * @param array $params
-   * @return $this
+   * Build and return the url for this nut.
+   *
+   * @return string
    */
-  public function build_nuts($params = array()) {
+  function get_nut_url() {
+    if (empty($this->url)) {
+      $base_url = $this->base_url;
+      $requires_leading_slash = TRUE;
+      if (strpos($base_url, '/')) {
+        // If the base_url contains a path component, then we have to append a
+        // single "|" and avoid the subsequent "/" to indicate the domain string.
+        $base_url .= '|';
+        $requires_leading_slash = FALSE;
+      }
+      $this->url = $this->scheme . '://' . $base_url . $this->get_path('', TRUE, FALSE, $requires_leading_slash);
+    }
+    return $this->url;
+  }
+
+  /**
+   * TBD.
+   *
+   * @param string $path
+   * @param bool $include_nut
+   * @param bool $include_base_path
+   * @param bool $requires_leading_slash
+   * @return string
+   */
+  function get_path($path, $include_nut = TRUE, $include_base_path = TRUE, $requires_leading_slash = TRUE) {
+    $prefix = $include_base_path ? $this->base_path() : '/';
+    if (!$requires_leading_slash) {
+      $prefix = substr($prefix, 1);
+    }
+    $suffix = array();
+    if ($include_nut) {
+      $suffix[] = 'nut=' . $this->get_encrypted_nut(self::SELECT_URL);
+    }
+    if (defined('SQRL_XDEBUG')) {
+      $suffix[] = 'XDEBUG_SESSION_START=IDEA';
+    }
+    $suffix = empty($suffix) ? '' : '?' . implode('&', $suffix);
+    return $prefix . $this::PATH_PREFIX . $path . $suffix;
+  }
+
+  private function base_path() {
+    // TODO: Return the section after the domain.
+    return '/';
+  }
+
+  /**
+   * Build the nuts
+   */
+  private function build_nuts() {
+    if ($this->status == self::STATUS_BUILT) {
+      return;
+    }
     //this operation to be done against a clean object only
     try {
       $this->is_clean();
       $this->clean = FALSE;
-      $this->set_op_params($params);
       $this->source_raw_nuts();
       $this->encode_raw_nuts();
       $this->encrypt_wrapper();
       $this->cache_set();
       $this->set_cookie();
       $this->status = self::STATUS_BUILT;
-    } catch (NutException $e)//exceptions we throw
-    {
+    }
+    catch (NutException $e) {
       //TBD use the generated code as passback and trigger
       $this->errorCode = $e->getCode();
       $this->msg = $e->getMessage();
     }
     //Don't catch standard exceptions
     /*
-    catch(Exception $e)//exceptions php throws
-    {
-        echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
+    catch (Exception $e) {
+      echo "Caught Exception ('{$e->getMessage()}')\n{$e}\n";
     }
     */
     //If PHP >=5.3 a finally clause can be added here to catch rest for now we let it drop through
-    return $this;
   }
 
   /**
@@ -209,6 +280,7 @@ abstract class Nut extends Common implements Nut_API {
    */
   public function get_encrypted_nut($key) {
     $this->nut_key($key);
+    $this->build_nuts();
     return $this->nut[$key];
   }
 
@@ -221,6 +293,7 @@ abstract class Nut extends Common implements Nut_API {
    */
   public function get_encoded_nut($key) {
     $this->nut_key($key);
+    $this->build_nuts();
     return $this->encoded[$key];
   }
 
@@ -232,6 +305,7 @@ abstract class Nut extends Common implements Nut_API {
    */
   public function get_raw_nut($key) {
     $this->nut_key($key);
+    $this->build_nuts();
     return $this->raw[$key];
   }
 
@@ -258,22 +332,6 @@ abstract class Nut extends Common implements Nut_API {
 
   public function is_exception() {
     return $this->errorCode ? TRUE : FALSE;
-  }
-
-  /**
-   * Getter for additional parameters that will get integrated into
-   * the NUT. This is useful so that the request from the SQRL client
-   * will contain those extra parameters as the server may need them
-   * to perform the required operation associated with the SQRL request.
-   * @param $key String Key used for saved parameter or leave empty for
-   * all parameters as array
-   * @return String for a provided key and an array for empty
-   */
-  public function get_op_param($key = NULL) {
-    if (NULL === $key) {
-      return $this->params;
-    }
-    return $this->params[$key];
   }
 
   private function source_raw_nuts() {
@@ -448,34 +506,6 @@ abstract class Nut extends Common implements Nut_API {
   }
 
   /**
-   * Setter for additional parameters that will get integrated into
-   * the NUT. This is useful so that the request from the SQRL client will contain
-   * those extra parameters as the server may need them to perform the required
-   * operation associated with the SQRL request.
-   *
-   * @param string $key
-   * @param string $value
-   * @return object
-   */
-  private function set_op_param($key = '', $value = '') {
-    if (!empty($key)) {
-      $this->params[$key] = $value;
-    }
-    return $this;
-  }
-
-  /**
-   * @param array $params
-   * @return $this
-   */
-  private function set_op_params($params = array()) {
-    foreach ($params as $key => $value) {
-      $this->set_op_param($key, $value);
-    }
-    return $this;
-  }
-
-  /**
    * helper function to fetch the client ip address allowing for
    * several possible server network configurations
    *
@@ -589,6 +619,29 @@ abstract class Nut extends Common implements Nut_API {
       return TRUE;
     }
     return FALSE;
+  }
+
+  function get_operation() {
+    return $this->operation;
+  }
+
+  function set_operation($operation) {
+    $this->operation = $operation;
+  }
+
+  function get_operation_param($key) {
+    return $this->params[$key];
+  }
+
+  function get_operation_params($key) {
+    return array(
+      'op' => $this->get_operation(),
+      'params' => $this->params,
+    );
+  }
+
+  function set_operation_param($key, $value) {
+    $this->params[$key] = $value;
   }
 
 }

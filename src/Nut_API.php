@@ -23,8 +23,6 @@ namespace JurgenhaasRamriot\SQRL;
  */
 interface Nut_API {
   //compound methods
-  function build_nuts();//Build a new nut object
-
   function fetch_nuts();//Fetch nut from client request and validate
 
   //test methods
@@ -43,5 +41,4 @@ interface Nut_API {
 
   function is_exception();//Is there an operational exception present
 
-  function get_op_param($key = NULL);
 }
