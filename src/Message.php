@@ -50,13 +50,13 @@ class Message {
   }
 
   /**
-   * @param int $level
+   * @param int $severity
    * @param string $message
    * @param array $variables
    */
-  public function log($level, $message, $variables = array()) {
+  public function log($severity, $message, $variables = array()) {
     if (!empty($this->callback_log) && function_exists($this->callback_log)) {
-      call_user_func($this->callback_log, $level, $message, $variables);
+      call_user_func($this->callback_log, $severity, $message, $variables);
     }
   }
 
