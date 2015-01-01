@@ -18,7 +18,7 @@
 
 namespace JurgenhaasRamriot\SQRL;
 
-abstract class Exception extends \Exception implements Exception_API {
+abstract class Exception extends \Exception {
 
   protected $message = 'Unknown exception'; // Exception message
   private $string;                          // Unknown

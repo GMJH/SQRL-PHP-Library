@@ -22,20 +22,35 @@ namespace JurgenhaasRamriot\SQRL;
  * A class to encompass the processing and validation of incoming
  * SQRL POST parameters
  */
-abstract class Client extends Common implements Client_API {
+abstract class Client extends Common {
 
   const CRLF = "\r\n";
+
+  // @var Nut $nut
+  private $nut;
+  private $sig_ids;
+  private $sig_pids;
+  private $sig_urs;
 
   protected $post = array();
   protected $vars = array();
   protected $sigkeys = array();
 
-  public function __construct() {
+  /**
+   * @param Nut $nut
+   */
+  public function __construct($nut) {
     parent::__construct();
+    //store the nut with the client
+    $this->nut = $nut;
     //fetch post array for processing
     $this->post = $_POST;
     //process post array
     $this->process();
+
+
+    // TODO: The following only if ... !?
+    $nut->authenticate($this->sig_ids, $this->sig_pids, $this->sig_urs);
   }
 
   /**
@@ -45,11 +60,14 @@ abstract class Client extends Common implements Client_API {
    */
   public function process() {
 
+    $this->sig_ids = $this->base64_decode($this->post['ids']);
+    $this->sig_pids = $this->base64_decode($this->post['pids']);
+    $this->sig_urs = $this->base64_decode($this->post['urs']);
     //current extent of signatures
     $signatures = array(
-      'ids' => $this->base64_decode($this->post['ids']),
-      'pids' => $this->base64_decode($this->post['pids']),
-      'urs' => $this->base64_decode($this->post['urs']),
+      'ids' => $this->sig_ids,
+      'pids' => $this->sig_pids,
+      'urs' => $this->sig_urs,
     );
     //default vars array to be populated by processors
     $this->vars = array(

@@ -25,10 +25,19 @@ namespace JurgenhaasRamriot\SQRL;
  */
 abstract class Common {
 
+  protected $request_time;
   protected $b = '';
 
   public function __construct() {
-    //Nothing to do at this point.
+    if (defined('REQUEST_TIME')) {
+      $this->request_time = REQUEST_TIME;
+    }
+    else if (isset($_SERVER['REQUEST_TIME'])) {
+      $this->request_time = $_SERVER['REQUEST_TIME'];
+    }
+    else {
+      $this->request_time = time();
+    }
   }
 
   /**
