@@ -63,6 +63,9 @@ abstract class Common {
   }
 
   function get_ip_address() {
+    // TODO: Should private range and/or reserved range be allowed or not?
+    // $filter = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
+    $filter = FALSE;
     foreach (array(
                'HTTP_CLIENT_IP',
                'HTTP_X_FORWARDED_FOR',
@@ -77,9 +80,7 @@ abstract class Common {
           // Just to be safe
           $ip_address = trim($ip_address);
 
-          if (filter_var($ip_address,
-              FILTER_VALIDATE_IP,
-              FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== FALSE) {
+          if (!$filter || filter_var($ip_address, FILTER_VALIDATE_IP, $filter)) {
             return $ip_address;
           }
         }
