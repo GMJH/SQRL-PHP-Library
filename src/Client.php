@@ -109,9 +109,9 @@ abstract class Client extends Common {
   private function validate_signatures() {
     // TODO: Check the signature/pub_key mapping.
     $required_signatures = array(
-      'ids' => 'puk',
-      'pids' => 'ppuk',
-      'urs' => 'purs',
+      'ids' => 'idk',
+      // 'pids' => 'pidk',
+      // 'urs' => 'purs',
     );
     foreach ($required_signatures as $key => $pub_key) {
 
@@ -207,8 +207,8 @@ abstract class Client extends Common {
   private function process() {
     $this->client_sigs = array(
       'ids' => $this->base64_decode($this->get_post_value('ids')),
-      'pids' => $this->base64_decode($this->get_post_value('pids')),
-      'urs' => $this->base64_decode($this->get_post_value('urs')),
+      // 'pids' => $this->base64_decode($this->get_post_value('pids')),
+      // 'urs' => $this->base64_decode($this->get_post_value('urs')),
     );
     $this->client_header = array(
       'host' => $this->get_server_value('HTTP_HOST'),
@@ -247,11 +247,11 @@ abstract class Client extends Common {
     $current_account = $this->find_user_account_by_key('idk');
     $previous_account = $this->find_user_account_by_key('pidk');
 
-    if ($previous_account) {
+    if (!empty($previous_account)) {
       $this->tif |= self::FLAG_PIDK_MATCH;
       $account = $previous_account;
     }
-    if ($current_account) {
+    if (!empty($current_account)) {
       $this->tif |= self::FLAG_IDK_MATCH;
       $account = $current_account;
       if (!$account->equals($previous_account)) {

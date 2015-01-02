@@ -69,7 +69,7 @@ abstract class Nut extends Common {
   abstract protected function save($params);
   abstract protected function load();
   abstract protected function counter();
-  abstract protected function authenticate($account);
+  abstract public function authenticate($account);
   abstract protected function authenticated();
 
   #region Main Final ===========================================================
@@ -337,20 +337,29 @@ abstract class Nut extends Common {
   }
 
   private function build_nuts() {
+    // TODO: do not build when it was fetched before
     if ($this->status == self::STATUS_BUILT) {
       return;
     }
+    if ($this->status == self::STATUS_DECODED) {
+      return;
+    }
+    if ($this->status == self::STATUS_FETCH) {
+      return;
+    }
     try {
-      $this->is_clean();
-      $this->clean = FALSE;
+      $this->status = self::STATUS_BUILT;
+      // TODO: review this mechanism
+      //$this->is_clean();
+      //$this->clean = FALSE;
       $this->source_raw_nuts();
       $this->encode_raw_nuts();
       $this->encrypt_wrapper();
       $this->save($this->get_operation_params());
       $this->set_cookie();
-      $this->status = self::STATUS_BUILT;
     }
     catch (NutException $e) {
+      $this->status = self::STATUS_INVALID;
       $this->error_code = $e->getCode();
       $this->error_message = $e->getMessage();
     }
@@ -361,6 +370,9 @@ abstract class Nut extends Common {
       return;
     }
     try {
+      if ($_GET['q'] == 'sqrl') {
+        $x='debug client';
+      }
       $this->is_clean();
       $this->clean = FALSE;
       $this->status = self::STATUS_FETCH;
@@ -373,6 +385,7 @@ abstract class Nut extends Common {
       $this->load_params();
       $this->status = self::STATUS_DECODED;
       $this->validate_nuts($cookie_expected);
+      $this->status = self::STATUS_BUILT;
     }
     catch (NutException $e) {
       $this->error_code = $e->getCode();
@@ -401,11 +414,11 @@ abstract class Nut extends Common {
   }
 
   private function decode_encoded_nuts($cookie_expected) {
-    $keys = array(self::SELECT_URL);
-    if ($cookie_expected) {
-      $keys[] = self::SELECT_COOKIE;
-    }
+    $keys = array(self::SELECT_URL, self::SELECT_COOKIE);
     foreach ($keys as $key) {
+      if ($key == self::SELECT_COOKIE && !$cookie_expected) {
+        continue;
+      }
       $ref = &$this->encoded;
       //test byte string
       if (strlen($ref[$key]) == 16) {
@@ -451,9 +464,12 @@ abstract class Nut extends Common {
     }
   }
 
-  private function decrypt_wrapper() {
+  private function decrypt_wrapper($cookie_expected) {
     $keys = array(self::SELECT_URL, self::SELECT_COOKIE);
     foreach ($keys as $key) {
+      if ($key == self::SELECT_COOKIE && !$cookie_expected) {
+        continue;
+      }
       $ref = &$this->nut[$key];
       $data = strtr($ref, array('-' => '+', '_' => '/')) . '==';
       $this->encoded[$key] = $this->decrypt($data, $key);
@@ -461,6 +477,8 @@ abstract class Nut extends Common {
   }
 
   private function is_nut_status($status) {
+    // TODO: Review this.
+    return;
     if ($this->status !== $status) {
       throw new NutException(SQRL::get_message()->format('Nut status check failed: @thisStatus != @chkStatus', array(
         '@thisStatus' => $this->status,

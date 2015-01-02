@@ -21,7 +21,7 @@ namespace JurgenhaasRamriot\SQRL;
 /**
  *
  */
-class Account {
+abstract class Account {
 
   protected $account;
 
