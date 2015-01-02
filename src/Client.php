@@ -26,193 +26,385 @@ abstract class Client extends Common {
 
   const CRLF = "\r\n";
 
-  // @var Nut $nut
-  private $nut;
-  private $sig_ids;
-  private $sig_pids;
-  private $sig_urs;
+  const FLAG_IDK_MATCH = 0x01;
+  const FLAG_PIDK_MATCH = 0x02;
+  const FLAG_IP_MATCH = 0x04;
+  const FLAG_ACCOUNT_ENABLED = 0x08;
+  const FLAG_ACCOUNT_LOGGED_IN = 0x10;
+  const FLAG_ACCOUNT_CREATION_ALLOWED = 0x20;
+  const FLAG_COMMAND_FAILURE = 0x40;
+  const FLAG_FAILURE = 0x80;
 
-  protected $post = array();
-  protected $vars = array();
-  protected $sigkeys = array();
+  // @var Nut $nut
+  protected $nut;
+  // @var Account $account
+  protected $account;
+
+  private $client_sigs;
+  private $client_header;
+  private $client_vars;
+  private $server_vars;
+  private $validation_string;
+
+  private $valid = FALSE;
+  private $http_code = 403;
+  private $message = '';
+  private $tif = 0;
+  private $response = array();
+  private $fields = array();
 
   /**
    * @param Nut $nut
    */
   public function __construct($nut) {
     parent::__construct();
-    //store the nut with the client
     $this->nut = $nut;
-    //fetch post array for processing
-    $this->post = $_POST;
-    //process post array
     $this->process();
-
-
-    // TODO: The following only if ... !?
-    $nut->authenticate($this->sig_ids, $this->sig_pids, $this->sig_urs);
+    if ($this->valid) {
+      $commands = $this->commands_determine();
+      $this->commands_execute($commands);
+    }
+    $this->respond();
   }
+
+  #region Main =================================================================
+
+  public function set_message($message, $tif = FALSE) {
+    if ($tif) {
+      $this->tif |= $tif;
+    }
+    $this->message = $message;
+  }
+
+  public function get_tif() {
+    return $this->tif;
+  }
+
+  public function get_client_var($key) {
+    return isset($this->client_vars[$key]) ? $this->client_vars[$key] : '';
+  }
+
+  public function set_response($key, $value) {
+    $this->response[$key] = $value;
+  }
+
+  abstract public function site_name();
+  abstract protected function save($value);
+  abstract protected function load();
+  abstract protected function find_user_account($key);
+  abstract protected function command_create();
+
+  #endregion
+
+  #region Validation ===========================================================
+
+  private function validate() {
+    $this->validate_signatures();
+    $this->validate_header();
+    $this->validate_client_vars();
+    $this->validate_server_vars();
+    $this->validate_nut();
+  }
+
+  private function validate_signatures() {
+    // TODO: Check the signature/pub_key mapping.
+    $required_signatures = array(
+      'ids' => 'puk',
+      'pids' => 'ppuk',
+      'urs' => 'purs',
+    );
+    foreach ($required_signatures as $key => $pub_key) {
+
+      // Is the signature present?
+      if (empty($this->client_sigs[$key])) {
+        throw new ClientException('Missing signature');
+      }
+
+      // Is the public key present?
+      if (empty($this->client_vars[$pub_key])) {
+        throw new ClientException('Missing public key');
+      }
+
+      // Validate signature
+      $this->ed25519_checkvalid($this->client_sigs[$key], $this->client_vars[$pub_key]);
+
+      // Validate the validation string
+      $this->validate_string($this->client_sigs[$key]);
+    }
+  }
+
+  private function validate_string($signature) {
+    // TODO: Validation of the string's signature.
+    if (FALSE) {
+      throw new ClientException('Validation string not signed properly');
+    }
+  }
+
+  private function validate_header() {
+    $required_signatures = array();
+    foreach ($required_signatures as $key) {
+
+      // Is the header value present?
+      if (empty($this->client_header[$key])) {
+        throw new ClientException('Missing header value');
+      }
+    }
+  }
+
+  private function validate_client_vars() {
+    $required_signatures = array();
+    foreach ($required_signatures as $key) {
+
+      // Is the client value present?
+      if (empty($this->client_vars[$key])) {
+        throw new ClientException('Missing client var');
+      }
+    }
+  }
+
+  private function validate_server_vars() {
+    $required_signatures = array();
+    foreach ($required_signatures as $key) {
+
+      // Is the server value present?
+      if (empty($this->server_vars[$key])) {
+        throw new ClientException('Missing server var');
+      }
+    }
+  }
+
+  private function validate_nut() {
+    $this->nut->validate_nuts();
+    if (!$this->nut->is_valid()) {
+      throw new ClientException($this->nut->get_error_message());
+    }
+
+    // Check if this client request is a response to a previous one and validate
+    $value = $this->load();
+    if ($value) {
+      if ($value != $this->encode_response($this->server_vars)) {
+        // TODO: Validation currently fails as the order from the client is different from what we sent out.
+        // throw new ClientException('Data from client does not match our previous response');
+      }
+    }
+  }
+
+  private function validate_ip_address() {
+    if ($this->nut->get_nut_ip_address() == $this->get_ip_address()) {
+      $this->tif |= self::FLAG_IP_MATCH;
+    }
+  }
+
+  #endregion
+
+  #region Internal =============================================================
 
   /**
    * https://www.grc.com/sqrl/semantics.htm: The data to be signed are the two
    * base64url encoded values of the “client=” and “server=” parameters with the
    * “server=” value concatenated to the end of the “client=” value.
    */
-  public function process() {
+  private function process() {
+    $this->client_sigs = array(
+      'ids' => $this->base64_decode($this->get_post_value('ids')),
+      'pids' => $this->base64_decode($this->get_post_value('pids')),
+      'urs' => $this->base64_decode($this->get_post_value('urs')),
+    );
+    $this->client_header = array(
+      'host' => $this->get_server_value('HTTP_HOST'),
+      'auth' => $this->get_server_value('HTTP_AUTHENTICATION'),
+      'agent' => $this->get_server_value('HTTP_USER_AGENT'),
+    );
+    $this->client_vars = $this->decode_parameter($this->get_post_value('client'));
+    $this->server_vars = $this->decode_parameter($this->get_post_value('server'));
+    $this->validation_string = $this->get_post_value('client') . $this->get_post_value('server');
 
-    $this->sig_ids = $this->base64_decode($this->post['ids']);
-    $this->sig_pids = $this->base64_decode($this->post['pids']);
-    $this->sig_urs = $this->base64_decode($this->post['urs']);
-    //current extent of signatures
-    $signatures = array(
-      'ids' => $this->sig_ids,
-      'pids' => $this->sig_pids,
-      'urs' => $this->sig_urs,
-    );
-    //default vars array to be populated by processors
-    $this->vars = array(
-      'http_code' => 403,
-      'tif' => 0,
-      'header' => array(
-        'host' => $this->get_server_value('HTTP_HOST'),
-        'auth' => $this->get_server_value('HTTP_AUTHENTICATION'),
-        'agent' => $this->get_server_value('HTTP_USER_AGENT'),
-      ),
-      'client' => $this->decode_parameter($this->post['client'], 'client'),
-      'server' => $this->decode_parameter($this->post['server'], 'server'),
-      'validation_string' => $this->post['client'] . $this->post['server'],
-      'signatures' => $signatures,
-      'nut' => $_GET['nut'],
-      'account' => FALSE,
-      'valid' => FALSE,
-      'response' => array(),
-      'fields' => array(),
-    );
+    try {
+      $this->validate();
+    }
+    catch (ClientException $e) {
+      $this->tif |= self::FLAG_COMMAND_FAILURE;
+      $this->message = $e->getMessage();
+      return;
+    }
+
+    try {
+      $this->validate_ip_address();
+      $this->authenticate();
+    }
+    catch (ClientException $e) {
+      $this->tif |= self::FLAG_COMMAND_FAILURE;
+      $this->message = $e->getMessage();
+      return;
+    }
+
+    $this->valid = TRUE;
+    $this->http_code = 200;
+    $this->message = 'Welcome';
   }
 
-  /**
-   * @return array
-   */
-  public function get_vars() {
-    return $this->vars;
+  private function authenticate() {
+    $current_account = $this->find_user_account_by_key('idk');
+    $previous_account = $this->find_user_account_by_key('pidk');
+
+    if ($previous_account) {
+      $this->tif |= self::FLAG_PIDK_MATCH;
+      $account = $previous_account;
+    }
+    if ($current_account) {
+      $this->tif |= self::FLAG_IDK_MATCH;
+      $account = $current_account;
+      if (!$account->equals($previous_account)) {
+        throw new ClientException('Current and previous user accounts do not match');
+      }
+    }
+
+    if (!isset($account)) {
+      if ($this->user_account_register_allowed()) {
+        $this->tif |= self::FLAG_ACCOUNT_CREATION_ALLOWED;
+      }
+      return;
+    }
+
+    if ($account->enabled()) {
+      $this->tif |= self::FLAG_ACCOUNT_ENABLED;
+    }
+    if ($account->logged_in()) {
+      $this->tif |= self::FLAG_ACCOUNT_LOGGED_IN;
+    }
+
+    $this->account = $account;
   }
 
-  /**
-   * Are all required signatures present.
-   *
-   * @param $sig_keys
-   *  Array of signature keys that are required or string for single
-   * @return Boolean False if required key/s are missing other wise return TRUE
-   */
-  public function required_keys($sig_keys) {
-    $result = TRUE;
-    if (is_array($sig_keys)) {
-      foreach ($sig_keys as $sig_key) {
-        if (!$this->required_key($sig_key)) {
-          $result = FALSE;
-          break;
+  private function commands_determine() {
+    if ($this->nut->get_operation() == 'link') {
+      if (empty($this->client_vars['suk']) || empty($this->client_vars['vuk'])) {
+        // This is the initial request from the client and we respond such
+        // that there is no account yet. This forces the client to send the
+        // keys with the next request.
+        $commands = array();
+      }
+      else if ($this->account) {
+        // Trying to link a user account to a SQRL identity that's already
+        // linked to another account. This needs to fail.
+        // TODO: How to respond to the client without disclosing too much information?
+        $commands = array();
+      }
+      else {
+        $commands = array('setkey_link');
+      }
+    }
+    else {
+      $commands = explode('~', $this->client_vars['cmd']);
+    }
+    return $commands;
+  }
+
+  private function commands_execute($commands) {
+    try {
+      foreach ($commands as $command) {
+        $method = 'command_' . $command;
+        if ($this->account && method_exists($this->account, $method)) {
+          if ($this->account->{$method}($this)) {
+            $this->nut->authenticate($this->account);
+          }
+        }
+        else if (method_exists($this, $method)) {
+          if ($this->{$method}()) {
+            $this->nut->authenticate($this->account);
+          }
         }
       }
     }
-    else {
-      $result = $this->required_key($sig_keys);
+    catch (ClientException $e) {
+      $this->tif |= self::FLAG_COMMAND_FAILURE;
+      $this->message = $e->getMessage();
     }
-    return $result;
+  }
+
+  private function respond() {
+    // Build the response body.
+    $response = array(
+      'ver' => '1',
+      'nut' => $this->nut->get_public_nut(Nut::SELECT_URL),
+      'tif' => $this->tif,
+      #'qry' => $this->nut->get_path('client/follow-up', $this->nut->get_public_nut(Nut::SELECT_URL)),
+      'sfn' => $this->site_name(),
+    );
+    $response += $this->response;
+
+    // TODO: How do we make the following secure?
+    if ($this->nut->is_secure_connection_available()) {
+      $response['lnk'] = $this->nut->get_path('action');
+    }
+
+    $msg = $this->message;
+    foreach ($this->fields as $type => $label) {
+      $msg .= '~' . $type . ':' . $label;
+    }
+    $response['ask'] = $msg;
+
+    $base64 = $this->encode_response($response);
+
+    SQRL::get_message()->log(Message::LOG_LEVEL_INFO, 'Server response', array('values' => $response, 'base64' => $base64,));
+    $this->save($base64);
+
+    $headers = array(
+      'charset' => 'utf-8',
+      'content-type' => 'text/plain',
+      'http_code', $this->http_code,
+    );
+    foreach ($headers as $key => $value) {
+      header($key . ': ' . $value);
+    }
+    print('server=' . $base64 . self::CRLF);
+    exit;
+  }
+
+  private function encode_response($values) {
+    $output = array();
+    foreach ($values as $key => $value) {
+      $output[] = $key . '=' . $value;
+    }
+    return $this->base64_encode(implode(self::CRLF, $output) . self::CRLF);
   }
 
   /**
-   * @param $key
-   * @param string $type
-   * @return bool
-   */
-  private function required_key($key, $type = 'sig') {
-    if (is_string($key) && strlen($key)) {
-      $response = TRUE;
-      switch ($type) {
-        case 'sig':
-          if (empty($this->vars['signature'][$key])) {
-            SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Required sig @key missing', array('@key' => $key));
-            $response = FALSE;
-          }
-          break;
-
-        case 'pub':
-          if (empty($this->vars['client'][$key])) {
-            SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Required pk @key missing', array('@key' => $key));
-            $response = FALSE;
-          }
-          break;
-
-      }
-    }
-    else {
-      $response = FALSE;
-      SQRL::get_message()->log(Message::LOG_LEVEL_ERROR, 'Bad call to required_key');
-    }
-    return $response;
-  }
-
-  /**
-   * list all signatures present
-   *
+   * @param $param
    * @return array
    */
-  public function signatures() {
-    $sig_keys = array();
-    foreach ($this->vars['signatures'] as $key => $sig) {
-      if (!empty($sig)) {
-        $sig_keys[] = $key;
+  private function decode_parameter($param) {
+    $string = $this->base64_decode($param);
+    $values = explode(self::CRLF, $string);
+    $vars = array();
+    foreach ($values as $value) {
+      if (!empty($value)) {
+        $parts = explode('=', $value);
+        $k = array_shift($parts);
+        $vars[$k] = implode('=', $parts);
       }
     }
-    return $sig_keys;
+    return $vars;
   }
 
   /**
-   * Are required signatures Present.
-   *
-   * @param $sig_key
-   * @param $pub_key
-   * @return bool False if any validation fales or true otherwise
+   * @param $key_type
+   * @return Account
    */
-  public function validate_signature($sig_key, $pub_key) {
-    //get signature
-    if (!$this->required_key($sig_key, 'sig')) {
-      return FALSE;
+  private function find_user_account_by_key($key_type) {
+    if (!empty($this->client_vars[$key_type])) {
+      return $this->find_user_account($this->client_vars[$key_type]);
     }
-    $sig = $this->vars['signatures'][$sig_key];
-    //get related pk
-    if (!$this->required_key($pub_key, 'pub')) {
-      return FALSE;
-    }
-    $pk = $this->vars['client'][$pub_key];
-    //validate
-    return $this->ed25519_checkvalid($sig, $pk);
+    return NULL;
   }
 
-  // TODO: Check the header values.
-  public function check_header_values() {
-
+  protected function user_account_register_allowed() {
+    return TRUE;
   }
 
-  // TODO: Check the client values.
-  public function check_client_values() {
+  #endregion
 
-  }
-
-  // TODO: Check the server values.
-  public function check_server_values() {
-
-  }
-
-  // TODO: Validate nut
-  public function validate_nut() {
-
-  }
-
-  // TODO: Validate same IP policy
-  public function validate_same_ip() {
-
-  }
+  #region Crypto ===============================================================
 
   /**
    * @param $s
@@ -221,7 +413,7 @@ abstract class Client extends Common {
    * @return bool
    * @throws Exception
    */
-  public function validate($s, $m, $pk) {
+  private function ed25519_something($s, $m, $pk) {
     if (strlen($s) != $this->b / 4) {
       throw new ClientException('Signature length is wrong');
     }
@@ -241,31 +433,13 @@ abstract class Client extends Common {
     return $this->scalarmult($this->b, $S) == $this->edwards($R, $this->scalarmult($A, $h));
   }
 
-  /**
-   * @param $param
-   * @param $key
-   * @return array
-   */
-  private function decode_parameter($param, $key) {
-    $string = $this->base64_decode($param);
-    $values = explode(self::CRLF, $string);
-    $vars = array();
-    foreach ($values as $value) {
-      if (!empty($value)) {
-        $parts = explode('=', $value);
-        $k = array_shift($parts);
-        $vars[$key][$k] = implode('=', $parts);
-      }
-    }
-    return $vars;
-  }
 
   /**
    * @param $sig
    * @param $pk
    * @return bool
    */
-  protected function ed25519_checkvalid($sig, $pk) {
+  private function ed25519_checkvalid($sig, $pk) {
     // TODO: needs implementation or external library.
     return TRUE;
   }
@@ -274,7 +448,7 @@ abstract class Client extends Common {
    * @param $s
    * @return string
    */
-  protected function encodepoint($s) {
+  private function encodepoint($s) {
     // TODO: Implementation.
     return $s;
   }
@@ -283,7 +457,7 @@ abstract class Client extends Common {
    * @param $s
    * @return string
    */
-  protected function decodepoint($s) {
+  private function decodepoint($s) {
     // TODO: Implementation.
     return $s;
   }
@@ -292,7 +466,7 @@ abstract class Client extends Common {
    * @param $s
    * @return string
    */
-  protected function Hint($s) {
+  private function Hint($s) {
     // TODO: Implementation.
     return $s;
   }
@@ -302,7 +476,7 @@ abstract class Client extends Common {
    * @param $s
    * @return string
    */
-  protected function scalarmult($b, $s) {
+  private function scalarmult($b, $s) {
     // TODO: Implementation.
     return '';
   }
@@ -312,9 +486,11 @@ abstract class Client extends Common {
    * @param $s
    * @return string
    */
-  protected function edwards($b, $s) {
+  private function edwards($b, $s) {
     // TODO: Implementation.
     return '';
   }
+
+  #endregion
 
 }

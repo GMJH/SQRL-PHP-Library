@@ -52,6 +52,43 @@ abstract class Common {
   }
 
   /**
+   * Get the value of a key in the $_SERVER array or the string unknown if the
+   * key is not set.
+   *
+   * @param string $key
+   * @return string
+   */
+  function get_post_value($key) {
+    return isset($_POST[$key]) ? $_POST[$key] : '';
+  }
+
+  function get_ip_address() {
+    foreach (array(
+               'HTTP_CLIENT_IP',
+               'HTTP_X_FORWARDED_FOR',
+               'HTTP_X_FORWARDED',
+               'HTTP_X_CLUSTER_CLIENT_IP',
+               'HTTP_FORWARDED_FOR',
+               'HTTP_FORWARDED',
+               'REMOTE_ADDR'
+             ) as $key) {
+      if (array_key_exists($key, $_SERVER) === TRUE) {
+        foreach (explode(',', $_SERVER[$key]) as $ip_address) {
+          // Just to be safe
+          $ip_address = trim($ip_address);
+
+          if (filter_var($ip_address,
+              FILTER_VALIDATE_IP,
+              FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== FALSE) {
+            return $ip_address;
+          }
+        }
+      }
+    }
+    return FALSE;
+  }
+
+  /**
    * Returns a URL safe base64 encoded version of the string.
    *
    * @param $string

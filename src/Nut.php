@@ -42,6 +42,7 @@ abstract class Nut extends Common {
   private $base_url;
   private $url;
   private $scheme;
+  private $nut_ip_address;
 
   private $raw = array();
   private $encoded = array();
@@ -65,10 +66,10 @@ abstract class Nut extends Common {
   abstract public    function is_secure_connection_available();
   abstract protected function encrypt($data, $key);
   abstract protected function decrypt($data, $key);
-  abstract protected function save();
+  abstract protected function save($params);
   abstract protected function load();
   abstract protected function counter();
-  abstract protected function authenticate($ids, $pids, $urs);
+  abstract protected function authenticate($account);
   abstract protected function authenticated();
 
   #region Main Final ===========================================================
@@ -171,6 +172,10 @@ abstract class Nut extends Common {
     return $this->error_message;
   }
 
+  final public function get_nut_ip_address() {
+    return $this->nut_ip_address;
+  }
+
   final public function get_operation() {
     return $this->operation;
   }
@@ -186,6 +191,7 @@ abstract class Nut extends Common {
   final public function get_operation_params() {
     return array(
       'op' => $this->get_operation(),
+      'ip' => $this->get_ip_address(),
       'params' => $this->params,
     );
   }
@@ -231,30 +237,23 @@ abstract class Nut extends Common {
     unset($_COOKIE['sqrl']);
   }
 
-  private function _get_ip_address() {
-    foreach (array(
-               'HTTP_CLIENT_IP',
-               'HTTP_X_FORWARDED_FOR',
-               'HTTP_X_FORWARDED',
-               'HTTP_X_CLUSTER_CLIENT_IP',
-               'HTTP_FORWARDED_FOR',
-               'HTTP_FORWARDED',
-               'REMOTE_ADDR'
-             ) as $key) {
-      if (array_key_exists($key, $_SERVER) === TRUE) {
-        foreach (explode(',', $_SERVER[$key]) as $ip_address) {
-          // Just to be safe
-          $ip_address = trim($ip_address);
-
-          if (filter_var($ip_address,
-              FILTER_VALIDATE_IP,
-              FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== FALSE) {
-            return $ip_address;
-          }
-        }
-      }
+  private function load_params() {
+    $params = $this->load();
+    if (empty($params)) {
+      throw new NutException('No params received from implementing framework');
     }
-    return FALSE;
+    if (empty($params['op'])) {
+      throw new NutException('Wrong params received from implementing framework');
+    }
+    if (empty($params['ip'])) {
+      throw new NutException('Wrong params received from implementing framework');
+    }
+    if (!isset($params['params']) || !is_array($params['params'])) {
+      throw new NutException('Wrong params received from implementing framework');
+    }
+    $this->set_operation($params['op']);
+    $this->nut_ip_address = $params['ip'];
+    $this->set_operation_params($params['params']);
   }
 
   private function _get_random_bytes($count) {
@@ -347,7 +346,7 @@ abstract class Nut extends Common {
       $this->source_raw_nuts();
       $this->encode_raw_nuts();
       $this->encrypt_wrapper();
-      $this->save();
+      $this->save($this->get_operation_params());
       $this->set_cookie();
       $this->status = self::STATUS_BUILT;
     }
@@ -371,7 +370,7 @@ abstract class Nut extends Common {
       }
       $this->decrypt_wrapper($cookie_expected);
       $this->decode_encoded_nuts($cookie_expected);
-      $this->load();
+      $this->load_params();
       $this->status = self::STATUS_DECODED;
       $this->validate_nuts($cookie_expected);
     }
@@ -384,7 +383,7 @@ abstract class Nut extends Common {
   private function source_raw_nuts() {
     $this->raw[self::SELECT_URL] = array(
       'time' => $this->request_time,
-      'ip' => $this->_get_ip_address(),
+      'ip' => $this->get_ip_address(),
       'counter' => $this->counter('sqrl_nut'),
       'random' => $this->_get_random_bytes(4),
     );
