@@ -25,6 +25,7 @@ namespace JurgenhaasRamriot\SQRL;
 abstract class SQRL extends Common {
 
   const PATH_PREFIX = 'sqrl/';
+  const PATH_CLIENT = '';
 
   private $nut_ip_address;
   private $operation = 'login';
@@ -118,7 +119,7 @@ abstract class SQRL extends Common {
         $base_url .= '|';
         $requires_leading_slash = FALSE;
       }
-      $this->url = $this->scheme . '://' . $base_url . $this->get_path('', TRUE, FALSE, $requires_leading_slash);
+      $this->url = $this->scheme . '://' . $base_url . $this->get_path(self::PATH_CLIENT, TRUE, FALSE, $requires_leading_slash);
     }
     return $this->url;
   }
