@@ -25,19 +25,43 @@ namespace JurgenhaasRamriot\SQRL;
  */
 abstract class Common {
 
-  protected $request_time;
-  protected $b = '';
+  public function get_request_time() {
+    static $time;
+    if (!isset($time)) {
+      if (defined('REQUEST_TIME')) {
+        $time = REQUEST_TIME;
+      }
+      else if (isset($_SERVER['REQUEST_TIME'])) {
+        $time = $_SERVER['REQUEST_TIME'];
+      }
+      else {
+        $time = time();
+      }
+    }
+    return $time;
+  }
 
-  public function __construct() {
-    if (defined('REQUEST_TIME')) {
-      $this->request_time = REQUEST_TIME;
+  public function is_timeout($timestamp) {
+    return ($timestamp + $this->get_lifetime() < $this->get_request_time());
+  }
+
+  public function get_timeout() {
+    return ($this->get_lifetime() + $this->get_request_time());
+  }
+
+  public function get_lifetime() {
+    return $this->set_lifetime();
+  }
+
+  public function set_lifetime($lifetime = NULL) {
+    static $time;
+    if (isset($lifetime)) {
+      $time = $lifetime;
     }
-    else if (isset($_SERVER['REQUEST_TIME'])) {
-      $this->request_time = $_SERVER['REQUEST_TIME'];
+    else if (!isset($time)) {
+      $time = 600;
     }
-    else {
-      $this->request_time = time();
-    }
+    return $time;
   }
 
   /**
@@ -163,6 +187,8 @@ abstract class Common {
 
     return ($binary_i);
   }
+
+  protected $b = '';
 
   /**
    * @param $y

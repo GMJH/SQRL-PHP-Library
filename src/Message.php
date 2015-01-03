@@ -39,11 +39,11 @@ class Message {
   public function register_callback($type, $callback) {
     switch ($type) {
       case 'log':
-        $callback_log = $callback;
+        $this->callback_log = $callback;
         break;
 
       case 'message':
-        $callback_message = $callback;
+        $this->callback_message = $callback;
         break;
 
     }
@@ -56,6 +56,7 @@ class Message {
    */
   public function log($severity, $message, $variables = array()) {
     if (!empty($this->callback_log) && function_exists($this->callback_log)) {
+      $this->sanitize($variables);
       call_user_func($this->callback_log, $severity, $message, $variables);
     }
   }
@@ -67,6 +68,7 @@ class Message {
    */
   public function message($type, $message, $variables = array()) {
     if (!empty($this->callback_message) && function_exists($this->callback_message)) {
+      $this->sanitize($variables);
       call_user_func($this->callback_message, $type, $message, $variables);
     }
   }
@@ -116,6 +118,14 @@ class Message {
    */
   private function placeholder($text) {
     return '<em class="placeholder">' . $this->check_plain($text) . '</em>';
+  }
+
+  private function sanitize(&$variables) {
+    foreach ($variables as $key => $value) {
+      if (!is_scalar($value)) {
+        $variables[$key] = print_r($value, TRUE);
+      }
+    }
   }
 
 }

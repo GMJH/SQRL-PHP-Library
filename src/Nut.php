@@ -19,226 +19,186 @@
 namespace JurgenhaasRamriot\SQRL;
 
 /**
- * This class defines the main structure for SQRL nut building,
- * encoding, decoding and validation.
+ * This class defines the main structure for a SQRL nut object, encoding,
+ * decoding and validation. This is only accessible and used by the Nut class,
+ * once for the url nut and optionally once for the cookie nut.
  */
-abstract class Nut extends Common {
+class Nut extends Common {
 
-  const PATH_PREFIX = 'sqrl/';
-  const NUT_LIFETIME = 600;
+  const MODE_BUILD = 'build';
+  const MODE_FETCH = 'fetch';
+  const IS_COOKIE  = FALSE;
 
-  const SELECT_COOKIE = 'cookie';
-  const SELECT_URL = 'url';
-
+  const STATUS_INITED = 'inited';
   const STATUS_VALID = 'validated';
   const STATUS_INVALID = 'invalid';
   const STATUS_BUILT = 'built';
-  const STATUS_FETCH = 'fetched';
+  const STATUS_FETCHED = 'fetched';
   const STATUS_DECODED = 'decoded';
   const STATUS_NOCOOKIE = 'nocookie';
 
-  private $operation = 'login';
-  private $params = array();
-  private $base_url;
-  private $url;
-  private $scheme;
-  private $nut_ip_address;
+  // @var Nut $wrapper
+  protected $wrapper;
 
-  private $raw = array();
-  private $encoded = array();
-  private $nut = array();
-  private $error = FALSE;
+  // @var NutCookie $cookie_nut
+  private $cookie_nut;
+
+  private $mode = self::MODE_BUILD;
+
+  protected $nut_public;
+  protected $nut_encoded;
+  protected $nut_raw;
+
+  private $status = self::STATUS_INITED;
+
   private $error_code = 0;
-  private $error_message = array();
-  private $clean = TRUE;
-  private $status = '';
+  private $error_message = '';
 
-  public function __construct($fetch, $cookie_expected = FALSE) {
-    parent::__construct();
-    $this->base_url = strtolower($this->build_base_url());
-    $this->scheme = $this->use_secure_connection() ? 'sqrl' : 'qrl';
-    if ($fetch) {
-      $this->fetch_nuts($cookie_expected);
-    }
+  /**
+   * @param SQRL $wrapper
+   */
+  public function __construct($wrapper) {
+    $this->wrapper = $wrapper;
   }
 
-  abstract protected function build_base_url();
-  abstract public    function is_secure_connection_available();
-  abstract protected function encrypt($data, $key);
-  abstract protected function decrypt($data, $key);
-  abstract protected function save($params);
-  abstract protected function load();
-  abstract protected function counter();
-  abstract public function authenticate($account);
-  abstract protected function authenticated();
-
-  #region Main Final ===========================================================
-
-  final public function validate_nuts($cookie_expected = FALSE) {
-    try {
-      $this->is_dirty();
-      $this->is_nut_status(self::STATUS_DECODED);
-      $this->is_raw_nut_expired(self::SELECT_URL);
-      if ($cookie_expected) {
-        $this->is_raw_nut_expired(self::SELECT_COOKIE);
-        $this->is_match_encoded_nuts();
-        $this->is_match_raw_nuts();
-      }
-    }
-    catch (NutException $e) {
-      $this->error_code = $e->getCode();
-      $this->error_message = $e->getMessage();
-    }
-  }
-
-  final public function is_exception() {
-    return $this->error_code ? TRUE : FALSE;
+  public function requires_cookie() {
+    $this->cookie_nut = new NutCookie($this->wrapper);
+    $this->cookie_nut->set_url_nut($this);
   }
 
   final public function is_valid() {
-    return $this->error_code ? FALSE : TRUE;
-  }
-
-  final public function is_authenticated() {
-    if ($this->authenticated()) {
-      $this->del_cookie();
-      return TRUE;
-    }
-    return FALSE;
-  }
-
-  final public function get_base_url() {
-    return $this->base_url;
-  }
-
-  final public function get_path($path, $include_nut = TRUE, $include_base_path = TRUE, $requires_leading_slash = TRUE) {
-    $prefix = $include_base_path ? $this->base_path() : '/';
-    if (!$requires_leading_slash) {
-      $prefix = substr($prefix, 1);
-    }
-    $suffix = array();
-    if ($include_nut) {
-      $suffix[] = 'nut=' . $this->get_public_nut(self::SELECT_URL);
-    }
-    if (defined('SQRL_XDEBUG')) {
-      $suffix[] = 'XDEBUG_SESSION_START=IDEA';
-    }
-    $suffix = empty($suffix) ? '' : '?' . implode('&', $suffix);
-    return $prefix . $this::PATH_PREFIX . $path . $suffix;
-  }
-
-  final public function get_nut_url() {
-    if (empty($this->url)) {
-      $base_url = $this->base_url;
-      $requires_leading_slash = TRUE;
-      if (strpos($base_url, '/')) {
-        // If the base_url contains a path component, then we have to append a
-        // single "|" and avoid the subsequent "/" to indicate the domain string.
-        $base_url .= '|';
-        $requires_leading_slash = FALSE;
-      }
-      $this->url = $this->scheme . '://' . $base_url . $this->get_path('', TRUE, FALSE, $requires_leading_slash);
-    }
-    return $this->url;
-  }
-
-  final public function get_encoded_nut($key) {
-    $this->nut_key($key);
-    $this->build_nuts();
-    return $this->encoded[$key];
-  }
-
-  final public function get_public_nut($key) {
-    $this->nut_key($key);
-    $this->build_nuts();
-    return $this->nut[$key];
-  }
-
-  final public function get_raw_nut($key) {
-    $this->nut_key($key);
-    $this->build_nuts();
-    return $this->raw[$key];
-  }
-
-  final public function get_status() {
-    return $this->status;
-  }
-
-  final public function get_errorCode() {
-    return $this->error_code;
+    return ($this->status != self::STATUS_INVALID);
   }
 
   final public function get_error_message() {
     return $this->error_message;
   }
 
-  final public function get_nut_ip_address() {
-    return $this->nut_ip_address;
+  final public function get_nut() {
+    $this->build();
+    return $this->nut_public;
   }
 
-  final public function get_operation() {
-    return $this->operation;
-  }
+  public function fetch() {
+    $this->mode = self::MODE_FETCH;
+    if ($this->status == self::STATUS_FETCHED) {
+      return;
+    }
+    try {
+      $this->nut_public = $this->fetch_nut();
+      $this->decrypt();
+      $this->decode();
+      $this->validate_expiration();
+      $this->load();
 
-  final public function set_operation($operation) {
-    $this->operation = $operation;
-  }
-
-  final public function get_operation_param($key) {
-    return $this->params[$key];
-  }
-
-  final public function get_operation_params() {
-    return array(
-      'op' => $this->get_operation(),
-      'ip' => $this->get_ip_address(),
-      'params' => $this->params,
-    );
-  }
-
-  final public function set_operation_param($key, $value) {
-    $this->params[$key] = $value;
-  }
-
-  final public function set_operation_params($values) {
-    foreach ($values as $key => $value) {
-      $this->set_operation_param($key, $value);
+      if ($this->cookie_nut instanceof NutCookie) {
+        $this->cookie_nut->fetch();
+      }
+      $this->status = self::STATUS_FETCHED;
+    }
+    catch (NutException $e) {
+      $this->status = self::STATUS_INVALID;
+      $this->error_code = $e->getCode();
+      $this->error_message = $e->getMessage();
     }
   }
 
-  #endregion
+  public function build() {
+    if ($this->mode != self::MODE_BUILD || $this->status == self::STATUS_BUILT) {
+      return;
+    }
+    try {
+      $this->requires_cookie();
+      $this->status = self::STATUS_BUILT;
+      $this->nut_raw = array(
+        'time' => $this->get_request_time(),
+        'ip' => $this->get_ip_address(),
+        'counter' => $this->wrapper->counter(),
+        'random' => $this->random_bytes(4),
+      );
+      $this->encode();
+      $this->encrypt();
+      $this->wrapper->save($this->wrapper->get_operation_params());
 
-  #region Main (potential overwrite) ===========================================
-
-  public function use_secure_connection() {
-    return $this->is_secure_connection_available();
+      if ($this->cookie_nut instanceof NutCookie) {
+        $this->cookie_nut->build();
+      }
+    }
+    catch (NutException $e) {
+      $this->status = self::STATUS_INVALID;
+      $this->error_code = $e->getCode();
+      $this->error_message = $e->getMessage();
+    }
   }
 
-  public function get_connection_port() {
-    return $this->is_secure_connection_available() ? 443 : 80;
+  protected function fetch_nut() {
+    $nut = isset($_GET['nut']) ? $_GET['nut'] : FALSE;
+    if (!$nut) {
+      throw new NutException('Nut missing from GET request');
+    }
+    return $nut;
   }
 
-  #endregion
-
-  #region Internal =============================================================
-
-  private function base_path() {
-    // TODO: Return the section after the domain.
-    return '/';
+  protected function encrypt() {
+    $data = $this->wrapper->encrypt($this->nut_encoded, $this::IS_COOKIE);
+    $this->nut_public = strtr($data, array('+' => '-', '/' => '_', '=' => ''));
   }
 
-  private function set_cookie() {
-    setcookie('sqrl', $this->nut[self::SELECT_COOKIE], $this->request_time + self::NUT_LIFETIME, '/', $this->get_base_url());
+  private function decrypt() {
+    $ref = $this->nut_public;
+    $data = strtr($ref, array('-' => '+', '_' => '/')) . '==';
+    $this->nut_encoded = $this->wrapper->decrypt($data, $this::IS_COOKIE);
+
   }
 
-  private function del_cookie() {
-    $params = session_get_cookie_params();
-    setcookie('sqrl', '', $this->request_time - 3600, $params['path'], $params['domain']);
-    unset($_COOKIE['sqrl']);
+  private function encode() {
+    $ref = $this->nut_raw;
+    //format bytes
+    $this->nut_encoded = pack('LLL', $ref['time'], $this->_ip_to_long($ref['ip']), $ref['counter']) . $ref['random'];
   }
 
-  private function load_params() {
-    $params = $this->load();
+  private function decode() {
+    if (strlen($this->nut_encoded) == 16) {
+      $this->nut_raw = array(
+        'time' => $this->decode_time($this->nut_encoded),
+        'ip' => $this->decode_ip($this->nut_encoded),
+        'counter' => $this->decode_counter($this->nut_encoded),
+        'random' => $this->decode_random($this->nut_encoded),
+      );
+    }
+    else {
+      throw new NutException(SQRL::get_message()->format('Nut string length incorrect: @len', array('@len' => strlen($this->nut_encoded))));
+    }
+  }
+
+  private function decode_time($bytes) {
+    $output = unpack('L', $this->_bytes_extract($bytes, 0, 4));
+    return array_shift($output);
+  }
+
+  private function decode_ip($bytes) {
+    $output = unpack('L', $this->_bytes_extract($bytes, 4, 4));
+    return $this->_long_to_ip(array_shift($output));
+  }
+
+  private function decode_counter($bytes) {
+    $output = unpack('L', $this->_bytes_extract($bytes, 8, 4));
+    return array_shift($output);
+  }
+
+  private function decode_random($bytes) {
+    return $this->_bytes_extract($bytes, 12, 4);
+  }
+
+  private function validate_expiration() {
+    if ($this->is_timeout($this->nut_raw['time'])) {
+      $this->wrapper->del_cookie();
+      throw new NutException('Nut time validity expired');
+    }
+  }
+
+  private function load() {
+    $params = $this->wrapper->load();
     if (empty($params)) {
       throw new NutException('No params received from implementing framework');
     }
@@ -251,12 +211,12 @@ abstract class Nut extends Common {
     if (!isset($params['params']) || !is_array($params['params'])) {
       throw new NutException('Wrong params received from implementing framework');
     }
-    $this->set_operation($params['op']);
-    $this->nut_ip_address = $params['ip'];
-    $this->set_operation_params($params['params']);
+    $this->wrapper->set_operation($params['op']);
+    $this->wrapper->set_nut_ip_address($params['ip']);
+    $this->wrapper->set_operation_params($params['params']);
   }
 
-  private function _get_random_bytes($count) {
+  private function random_bytes($count) {
     static $random_state, $bytes, $has_openssl;
     $missing_bytes = $count - strlen($bytes);
     if ($missing_bytes > 0) {
@@ -309,237 +269,5 @@ abstract class Nut extends Common {
     $bytes = substr($bytes, $count);
     return $output;
   }
-
-  private function time_safe_strcomp($str1, $str2) {
-    $str1_len = strlen($str1);
-    $str2_len = strlen($str2);
-    if ($str1_len == 0 || $str2_len == 0) {
-      throw new \InvalidArgumentException('This function cannot safely compare against an empty given string');
-    }
-    $res = $str1_len ^ $str2_len;
-    for ($i = 0; $i < $str1_len; ++$i) {
-      $res |= ord($str1[$i % $str1_len]) ^ ord($str2[$i]);
-    }
-    if ($res === 0) {
-      return TRUE;
-    }
-    return FALSE;
-  }
-
-  #endregion
-
-  #region Internal nut handling ================================================
-
-  private function nut_key($key) {
-    if ($key !== self::SELECT_COOKIE && $key !== self::SELECT_URL) {
-      throw new NutException('Cookie / Nut selector not passing correct key');
-    }
-  }
-
-  private function build_nuts() {
-    // TODO: do not build when it was fetched before
-    if ($this->status == self::STATUS_BUILT) {
-      return;
-    }
-    if ($this->status == self::STATUS_DECODED) {
-      return;
-    }
-    if ($this->status == self::STATUS_FETCH) {
-      return;
-    }
-    try {
-      $this->status = self::STATUS_BUILT;
-      // TODO: review this mechanism
-      //$this->is_clean();
-      //$this->clean = FALSE;
-      $this->source_raw_nuts();
-      $this->encode_raw_nuts();
-      $this->encrypt_wrapper();
-      $this->save($this->get_operation_params());
-      $this->set_cookie();
-    }
-    catch (NutException $e) {
-      $this->status = self::STATUS_INVALID;
-      $this->error_code = $e->getCode();
-      $this->error_message = $e->getMessage();
-    }
-  }
-
-  private function fetch_nuts($cookie_expected = FALSE) {
-    if (!$this->clean) {
-      return;
-    }
-    try {
-      if ($_GET['q'] == 'sqrl') {
-        $x='debug client';
-      }
-      $this->is_clean();
-      $this->clean = FALSE;
-      $this->status = self::STATUS_FETCH;
-      $this->nut[self::SELECT_URL] = $this->fetch_url_nut();
-      if ($cookie_expected) {
-        $this->nut[self::SELECT_COOKIE] = $this->fetch_cookie_nut();
-      }
-      $this->decrypt_wrapper($cookie_expected);
-      $this->decode_encoded_nuts($cookie_expected);
-      $this->load_params();
-      $this->status = self::STATUS_DECODED;
-      $this->validate_nuts($cookie_expected);
-      $this->status = self::STATUS_BUILT;
-    }
-    catch (NutException $e) {
-      $this->error_code = $e->getCode();
-      $this->error_message = $e->getMessage();
-    }
-  }
-
-  private function source_raw_nuts() {
-    $this->raw[self::SELECT_URL] = array(
-      'time' => $this->request_time,
-      'ip' => $this->get_ip_address(),
-      'counter' => $this->counter('sqrl_nut'),
-      'random' => $this->_get_random_bytes(4),
-    );
-    $this->raw[self::SELECT_COOKIE] = $this->raw[self::SELECT_URL];
-  }
-
-  private function encode_raw_nuts() {
-    $keys = array(self::SELECT_COOKIE, self::SELECT_URL);
-    foreach ($keys as $key) {
-      $ref = &$this->raw[$key];
-      //format bytes
-      $output = pack('LLL', $ref['time'], $this->_ip_to_long($ref['ip']), $ref['counter']) . $ref['random'];
-      $this->encoded[$key] = $output;
-    }
-  }
-
-  private function decode_encoded_nuts($cookie_expected) {
-    $keys = array(self::SELECT_URL, self::SELECT_COOKIE);
-    foreach ($keys as $key) {
-      if ($key == self::SELECT_COOKIE && !$cookie_expected) {
-        continue;
-      }
-      $ref = &$this->encoded;
-      //test byte string
-      if (strlen($ref[$key]) == 16) {
-        $this->raw[$key] = array(
-          'time' => $this->decode_time($ref[$key]),
-          'ip' => $this->decode_ip($ref[$key]),
-          'counter' => $this->decode_counter($ref[$key]),
-          'random' => $this->decode_random($ref[$key]),
-        );
-        $this->is_raw_nut_expired($key);
-      }
-      else {
-        throw new NutException(SQRL::get_message()->format('Nut string length incorrect: @len', array('@len' => strlen($ref[$key]))));
-      }
-    }
-  }
-
-  private function decode_time($bytes) {
-    $output = unpack('L', $this->_bytes_extract($bytes, 0, 4));
-    return array_shift($output);
-  }
-
-  private function decode_ip($bytes) {
-    $output = unpack('L', $this->_bytes_extract($bytes, 4, 4));
-    return $this->_long_to_ip(array_shift($output));
-  }
-
-  private function decode_counter($bytes) {
-    $output = unpack('L', $this->_bytes_extract($bytes, 8, 4));
-    return array_shift($output);
-  }
-
-  private function decode_random($bytes) {
-    return $this->_bytes_extract($bytes, 12, 4);
-  }
-
-  private function encrypt_wrapper() {
-    $keys = array(self::SELECT_URL, self::SELECT_COOKIE);
-    foreach ($keys as $key) {
-      $ref = &$this->encoded[$key];
-      $data = $this->encrypt($ref, $key);
-      $this->nut[$key] = strtr($data, array('+' => '-', '/' => '_', '=' => ''));
-    }
-  }
-
-  private function decrypt_wrapper($cookie_expected) {
-    $keys = array(self::SELECT_URL, self::SELECT_COOKIE);
-    foreach ($keys as $key) {
-      if ($key == self::SELECT_COOKIE && !$cookie_expected) {
-        continue;
-      }
-      $ref = &$this->nut[$key];
-      $data = strtr($ref, array('-' => '+', '_' => '/')) . '==';
-      $this->encoded[$key] = $this->decrypt($data, $key);
-    }
-  }
-
-  private function is_nut_status($status) {
-    // TODO: Review this.
-    return;
-    if ($this->status !== $status) {
-      throw new NutException(SQRL::get_message()->format('Nut status check failed: @thisStatus != @chkStatus', array(
-        '@thisStatus' => $this->status,
-        '@chkStatus' => $status
-      )));
-    }
-  }
-
-  private function is_clean() {
-    if (!$this->clean) {
-      throw new NutException('Clean nut expected dirty nut found');
-    }
-  }
-
-  private function is_dirty() {
-    if ($this->clean) {
-      throw new NutException('Dirty nut expected clean nut found');
-    }
-  }
-
-  private function fetch_url_nut() {
-    $nut = isset($_GET['nut']) ? $_GET['nut'] : FALSE;
-    if (!$nut) {
-      throw new NutException('Nut missing from GET request');
-    }
-    return $nut;
-  }
-
-  private function fetch_cookie_nut() {
-    $nut = isset($_COOKIE['sqrl']) ? $_COOKIE['sqrl'] : '';
-    if (!$nut) {
-      throw new NutException('Nut missing from COOKIE request');
-    }
-    return $nut;
-  }
-
-  private function is_match_raw_nuts() {
-    foreach ($this->raw[self::SELECT_URL] as $key => $value) {
-      if ($this->raw[self::SELECT_COOKIE][$key] != $value) {
-        throw new NutException('Nut in url and cookie raw parameter arrays do not match');
-      }
-    }
-  }
-
-  private function is_match_encoded_nuts() {
-    $str_url = $this->encoded[self::SELECT_URL];
-    $str_cookie = $this->encoded[self::SELECT_COOKIE];
-    if (!$this->time_safe_strcomp($str_url, $str_cookie)) {
-      throw new NutException('Nut in url and cookie encoded strings do not match');
-    }
-  }
-
-  private function is_raw_nut_expired($key) {
-    $this->nut_key($key);
-    $nut = $this->get_raw_nut($key);
-    if ($nut['time'] + self::NUT_LIFETIME < $this->request_time) {
-      $this->del_cookie();
-      throw new NutException('Nut time validity expired');
-    }
-  }
-
-  #endregion
 
 }

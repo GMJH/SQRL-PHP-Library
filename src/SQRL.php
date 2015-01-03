@@ -19,78 +19,178 @@
 namespace JurgenhaasRamriot\SQRL;
 
 /**
- * This class instantiates a class as a singleton
- * to keep only one instance present for a whole request cycle,
- * This is a better option than dependency injection.
- * NB: Implementers on other platforms can place their own override
- * classes and use the class name as the call instead of any default.
+ * This class defines the main structure for SQRL nut building,
+ * encoding, decoding and validation.
  */
-final class SQRL {
+abstract class SQRL extends Common {
 
-  private static $instance = array();
+  const PATH_PREFIX = 'sqrl/';
 
-  //The constructor is private so that outside code cannot instantiate
-  private function __construct() {}
+  private $nut_ip_address;
+  private $operation = 'login';
+  private $params = array();
+  private $base_url;
+  private $url;
+  private $scheme;
 
-  //Just in case block the clone method also
-  private function __clone() {}
+  // @var NutURL $nut
+  private $nut;
+  // @var Message $message
+  static private $message;
 
-  //Serialization prevention - enable this after debugging
-  /*
-  public function __wakeup() {
-    throw new Exception("Cannot unserialize singleton");
-  }
-  // */
-
-  //Instantiate singleton instance
-  private static function get($classname) {
-    if (!isset(self::$instance[$classname])) {
-      switch ($classname) {
-        case 'nut':
-          $full_classname = '\JurgenhaasRamriot\SQRL\Nut';
-          break;
-
-        case 'client':
-          $full_classname = '\JurgenhaasRamriot\SQRL\Client';
-          break;
-
-        case 'message':
-          $full_classname = '\JurgenhaasRamriot\SQRL\Message';
-          break;
-
-        default:
-          return NULL;
-
-      }
-      self::$instance[$classname] = new $full_classname;
+  public function __construct($fetch, $cookie_expected = FALSE) {
+    $this->base_url = strtolower($this->build_base_url());
+    $this->scheme = $this->use_secure_connection() ? 'sqrl' : 'qrl';
+    $this->nut = new Nut($this);
+    if ($cookie_expected) {
+      $this->nut->requires_cookie();
     }
-    return self::$instance[$classname];
-  }
-
-  /**
-   * @return \JurgenhaasRamriot\SQRL\Nut
-   */
-  public static function get_nut() {
-    return self::get('nut');
-  }
-
-  /**
-   * @return \JurgenhaasRamriot\SQRL\Client
-   */
-  public static function get_client() {
-    return self::get('client');
+    if ($fetch) {
+      $this->nut->fetch();
+    }
   }
 
   /**
    * @return \JurgenhaasRamriot\SQRL\Message
    */
   public static function get_message() {
-    return self::get('message');
+    if (!isset(self::$message)) {
+      self::$message = new Message();
+    }
+    return self::$message;
   }
 
-  //Debugging method to Innumerate active singletons
-  public static function innumerate() {
-    return array_keys(self::$instance);
+  abstract protected function build_base_url();
+  abstract public function is_secure_connection_available();
+  abstract public function encrypt($data, $is_cookie);
+  abstract public function decrypt($data, $is_cookie);
+  abstract public function save($params);
+  abstract public function load();
+  abstract public function counter();
+  abstract public function authenticate($account);
+  abstract protected function authenticated();
+
+  #region Main Final ===========================================================
+
+  final public function is_valid() {
+    return $this->nut->is_valid();
   }
+
+  final public function get_error_message() {
+    return $this->nut->get_error_message();
+  }
+
+  final public function is_authenticated() {
+    if ($this->authenticated()) {
+      $this->del_cookie();
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  final public function get_base_url() {
+    return $this->base_url;
+  }
+
+  final public function get_path($path, $include_nut = TRUE, $include_base_path = TRUE, $requires_leading_slash = TRUE) {
+    $prefix = $include_base_path ? $this->base_path() : '/';
+    if (!$requires_leading_slash) {
+      $prefix = substr($prefix, 1);
+    }
+    $suffix = array();
+    if ($include_nut) {
+      $suffix[] = 'nut=' . $this->get_nut();
+    }
+    if (defined('SQRL_XDEBUG')) {
+      $suffix[] = 'XDEBUG_SESSION_START=IDEA';
+    }
+    $suffix = empty($suffix) ? '' : '?' . implode('&', $suffix);
+    return $prefix . $this::PATH_PREFIX . $path . $suffix;
+  }
+
+  final public function get_nut_url() {
+    if (empty($this->url)) {
+      $base_url = $this->base_url;
+      $requires_leading_slash = TRUE;
+      if (strpos($base_url, '/')) {
+        // If the base_url contains a path component, then we have to append a
+        // single "|" and avoid the subsequent "/" to indicate the domain string.
+        $base_url .= '|';
+        $requires_leading_slash = FALSE;
+      }
+      $this->url = $this->scheme . '://' . $base_url . $this->get_path('', TRUE, FALSE, $requires_leading_slash);
+    }
+    return $this->url;
+  }
+
+  final public function del_cookie() {
+    setcookie('sqrl', '', $this->get_request_time() - 3600, '/', $this->get_base_url());
+    unset($_COOKIE['sqrl']);
+  }
+
+  final public function get_nut() {
+    return $this->nut->get_nut();
+  }
+
+  final public function get_nut_ip_address() {
+    return $this->nut_ip_address;
+  }
+
+  final public function set_nut_ip_address($nut_ip_address) {
+    $this->nut_ip_address = $nut_ip_address;
+  }
+
+  final public function get_operation() {
+    return $this->operation;
+  }
+
+  final public function set_operation($operation) {
+    $this->operation = $operation;
+  }
+
+  final public function get_operation_param($key) {
+    return $this->params[$key];
+  }
+
+  final public function get_operation_params() {
+    return array(
+      'op' => $this->get_operation(),
+      'ip' => $this->get_ip_address(),
+      'params' => $this->params,
+    );
+  }
+
+  final public function set_operation_param($key, $value) {
+    $this->params[$key] = $value;
+  }
+
+  final public function set_operation_params($values) {
+    foreach ($values as $key => $value) {
+      $this->set_operation_param($key, $value);
+    }
+  }
+
+  #endregion
+
+  #region Main (potential overwrite) ===========================================
+
+  public function use_secure_connection() {
+    return $this->is_secure_connection_available();
+  }
+
+  public function get_connection_port() {
+    return $this->is_secure_connection_available() ? 443 : 80;
+  }
+
+  #endregion
+
+  #region Internal =============================================================
+
+  private function base_path() {
+    // TODO: Return the section after the domain.
+    return '/';
+  }
+
+  #endregion
 
 }

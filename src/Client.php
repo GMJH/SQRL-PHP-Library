@@ -35,8 +35,8 @@ abstract class Client extends Common {
   const FLAG_COMMAND_FAILURE = 0x40;
   const FLAG_FAILURE = 0x80;
 
-  // @var Nut $nut
-  protected $nut;
+  // @var SQRL $sqrl
+  protected $sqrl;
   // @var Account $account
   protected $account;
 
@@ -54,11 +54,10 @@ abstract class Client extends Common {
   private $fields = array();
 
   /**
-   * @param Nut $nut
+   * @param SQRL $sqrl
    */
-  public function __construct($nut) {
-    parent::__construct();
-    $this->nut = $nut;
+  public function __construct($sqrl) {
+    $this->sqrl = $sqrl;
     $this->process();
     if ($this->valid) {
       $commands = $this->commands_determine();
@@ -133,6 +132,10 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   * @param $signature
+   * @throws ClientException
+   */
   private function validate_string($signature) {
     // TODO: Validation of the string's signature.
     if (FALSE) {
@@ -174,9 +177,8 @@ abstract class Client extends Common {
   }
 
   private function validate_nut() {
-    $this->nut->validate_nuts();
-    if (!$this->nut->is_valid()) {
-      throw new ClientException($this->nut->get_error_message());
+    if (!$this->sqrl->is_valid()) {
+      throw new ClientException($this->sqrl->get_error_message());
     }
 
     // Check if this client request is a response to a previous one and validate
@@ -190,7 +192,7 @@ abstract class Client extends Common {
   }
 
   private function validate_ip_address() {
-    if ($this->nut->get_nut_ip_address() == $this->get_ip_address()) {
+    if ($this->sqrl->get_nut_ip_address() == $this->get_ip_address()) {
       $this->tif |= self::FLAG_IP_MATCH;
     }
   }
@@ -277,7 +279,7 @@ abstract class Client extends Common {
   }
 
   private function commands_determine() {
-    if ($this->nut->get_operation() == 'link') {
+    if ($this->sqrl->get_operation() == 'link') {
       if (empty($this->client_vars['suk']) || empty($this->client_vars['vuk'])) {
         // This is the initial request from the client and we respond such
         // that there is no account yet. This forces the client to send the
@@ -306,12 +308,12 @@ abstract class Client extends Common {
         $method = 'command_' . $command;
         if ($this->account && method_exists($this->account, $method)) {
           if ($this->account->{$method}($this)) {
-            $this->nut->authenticate($this->account);
+            $this->sqrl->authenticate($this->account);
           }
         }
         else if (method_exists($this, $method)) {
           if ($this->{$method}()) {
-            $this->nut->authenticate($this->account);
+            $this->sqrl->authenticate($this->account);
           }
         }
       }
@@ -326,7 +328,7 @@ abstract class Client extends Common {
     // Build the response body.
     $response = array(
       'ver' => '1',
-      'nut' => $this->nut->get_public_nut(Nut::SELECT_URL),
+      'nut' => $this->sqrl->get_nut(),
       'tif' => $this->tif,
       #'qry' => $this->nut->get_path('client/follow-up', $this->nut->get_public_nut(Nut::SELECT_URL)),
       'sfn' => $this->site_name(),
@@ -334,8 +336,8 @@ abstract class Client extends Common {
     $response += $this->response;
 
     // TODO: How do we make the following secure?
-    if ($this->nut->is_secure_connection_available()) {
-      $response['lnk'] = $this->nut->get_path('action');
+    if ($this->sqrl->is_secure_connection_available()) {
+      $response['lnk'] = $this->sqrl->get_path('action');
     }
 
     $msg = $this->message;
