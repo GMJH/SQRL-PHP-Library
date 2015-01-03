@@ -97,6 +97,7 @@ class Nut extends Common {
       $this->status = self::STATUS_FETCHED;
     }
     catch (NutException $e) {
+      // TODO: Logging.
       $this->status = self::STATUS_INVALID;
       $this->error_code = $e->getCode();
       $this->error_message = $e->getMessage();
@@ -125,6 +126,7 @@ class Nut extends Common {
       }
     }
     catch (NutException $e) {
+      // TODO: Logging.
       $this->status = self::STATUS_INVALID;
       $this->error_code = $e->getCode();
       $this->error_message = $e->getMessage();
