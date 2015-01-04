@@ -94,7 +94,7 @@ abstract class SQRL extends Common {
   }
 
   final public function get_path($path, $include_nut = TRUE, $include_base_path = TRUE, $requires_leading_slash = TRUE) {
-    $prefix = $include_base_path ? $this->base_path() : '/';
+    $prefix = $include_base_path ? $this->get_base_path() : '/';
     if (!$requires_leading_slash) {
       $prefix = substr($prefix, 1);
     }
@@ -125,7 +125,7 @@ abstract class SQRL extends Common {
   }
 
   final public function del_cookie() {
-    setcookie('sqrl', '', $this->get_request_time() - 3600, '/', $this->get_base_url());
+    setcookie('sqrl', '', $this->get_request_time() - 3600, $this->get_base_path(), $this->get_domain());
     unset($_COOKIE['sqrl']);
   }
 
@@ -187,11 +187,15 @@ abstract class SQRL extends Common {
 
   #region Internal =============================================================
 
-  private function base_path() {
+  public function get_domain() {
+    $domain_length = strpos($this->base_url, '/');
+    return $domain_length ? substr($this->base_url, 0, $domain_length) : $this->base_url;
+  }
+
+  public function get_base_path() {
     $domain_length = strpos($this->base_url, '/');
     return $domain_length ? substr($this->base_url, $domain_length) . '/' : '/';
   }
-
   #endregion
 
 }

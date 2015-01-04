@@ -38,7 +38,7 @@ final class NutCookie extends Nut {
    *
    */
   public function set_cookie() {
-    setcookie('sqrl', $this->nut_public, $this->get_timeout(), '/', $this->wrapper->get_base_url());
+    setcookie('sqrl', $this->nut_public, $this->get_timeout(), $this->wrapper->get_base_path(), $this->wrapper->get_domain());
   }
 
   /**
