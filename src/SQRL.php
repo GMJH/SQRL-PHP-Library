@@ -188,8 +188,8 @@ abstract class SQRL extends Common {
   #region Internal =============================================================
 
   private function base_path() {
-    // TODO: Return the section after the domain.
-    return '/';
+    $domain_length = strpos($this->base_url, '/');
+    return $domain_length ? substr($this->base_url, $domain_length) . '/' : '/';
   }
 
   #endregion
