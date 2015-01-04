@@ -24,8 +24,15 @@ namespace JurgenhaasRamriot\SQRL;
  */
 abstract class SQRL extends Common {
 
-  const PATH_PREFIX = 'sqrl/';
-  const PATH_CLIENT = '';
+  const PATH_PREFIX   = 'sqrl/';
+  const PATH_CLIENT   = '';
+  const PATH_AJAX     = 'ajax/';
+  const PATH_VIEW     = 'view/';
+  const PATH_USER     = 'action';
+  const PATH_QR_IMAGE = 'img';
+  const QR_SIZE       = 160;
+  const POLL_INTERVAL_INITIAL = 5;
+  const POLL_INTERVAL = 2;
 
   private $nut_ip_address;
   private $operation = 'login';
@@ -105,7 +112,8 @@ abstract class SQRL extends Common {
     if (defined('SQRL_XDEBUG')) {
       $suffix[] = 'XDEBUG_SESSION_START=IDEA';
     }
-    $suffix = empty($suffix) ? '' : '?' . implode('&', $suffix);
+    $separator = strpos($path, '?') ? '&' : '?';
+    $suffix = empty($suffix) ? '' : $separator . implode('&', $suffix);
     return $prefix . $this::PATH_PREFIX . $path . $suffix;
   }
 
@@ -119,7 +127,7 @@ abstract class SQRL extends Common {
         $base_url .= '|';
         $requires_leading_slash = FALSE;
       }
-      $this->url = $this->scheme . '://' . $base_url . $this->get_path(self::PATH_CLIENT, TRUE, FALSE, $requires_leading_slash);
+      $this->url = $this->scheme . '://' . $base_url . $this->get_path($this::PATH_CLIENT, TRUE, FALSE, $requires_leading_slash);
     }
     return $this->url;
   }
@@ -171,6 +179,15 @@ abstract class SQRL extends Common {
     }
   }
 
+  final public function get_icon() {
+    return $this->render_image('data:image/png;base64,' . base64_encode(file_get_contents(__DIR__ . '/includes/icon.png')));
+  }
+
+  private function render_image($src) {
+    $size = $this->get_qr_size();
+    return '<img src="' . $src . '" alt="SQRL" title="SQRL" height="' . $size . '" width="' . $size . '">';
+  }
+
   #endregion
 
   #region Main (potential overwrite) ===========================================
@@ -181,6 +198,81 @@ abstract class SQRL extends Common {
 
   public function get_connection_port() {
     return $this->is_secure_connection_available() ? 443 : 80;
+  }
+
+  public function is_page_cached() {
+    return FALSE;
+  }
+
+  public function get_qr_size() {
+    return $this::QR_SIZE;
+  }
+
+  public function get_poll_interval($initial = FALSE) {
+    return $initial ? $this::POLL_INTERVAL_INITIAL : $this::POLL_INTERVAL;
+  }
+
+  public function poll() {
+    $result = array();
+    $result['msg'] = 'Hallo';
+    if (!$this->is_valid()) {
+      $result['stopPolling'] = TRUE;
+    }
+    else if ($this->is_authenticated()) {
+      $destination = $this->get_path($this::PATH_USER, FALSE);
+      if ($destination) {
+        $result['location'] = $destination;
+      }
+      $result['stopPolling'] = TRUE;
+    }
+    else {
+      $result['stopPolling'] = FALSE;
+    }
+    header('Content-Type: application/json');
+    echo json_encode($result);
+  }
+
+  public function get_markup($operation, $force = FALSE, $json = FALSE) {
+    $this->set_operation($operation);
+
+    if (!$force && $this->is_page_cached() && !empty($_COOKIE['has_js'])) {
+      $image = $this->get_icon();
+      $markup = '<div id="sqrl-cache"><a href="' . $this->get_path($this::PATH_VIEW . $operation, FALSE) . '">' . $image . '</a></div>';
+    }
+    else {
+      $image = $this->render_image($this->get_path($this::PATH_QR_IMAGE));
+      $markup = '<div id="sqrl-' . $operation . '" class="sqrl ' . $operation . '"><a href="' . $this->get_nut_url() . '">' . $image . '</a></div>';;
+    }
+
+    $vars = array(
+      'url' => array(
+        'markup' => $this->get_path($this::PATH_AJAX . 'markup', FALSE),
+        'poll' => $this->get_path($this::PATH_AJAX . 'poll'),
+      ),
+      'pollIntervalInitial' => $this->get_poll_interval(TRUE) * 1000,
+      'pollInterval' => $this->get_poll_interval(FALSE) * 1000,
+    );
+    // Add JavaScript and CSS to the page.
+    if (!$force && !empty($_COOKIE['has_js'])) {
+      $script = '<script type="text/javascript">' . "\n";
+      $script .= '<!--//--><![CDATA[//><!--' . "\n";
+      $script .= 'var sqrl = JSON.parse(' . "'" . json_encode($vars) . "');\n";
+      $script .= file_get_contents(__DIR__ . '/includes/sqrl.js');
+      $script .= '//--><!]]>' . "\n";
+      $script .= '</script>';
+      $markup = $script . $markup;
+    }
+
+    if ($json) {
+      header('Content-Type: application/json');
+      return json_encode(array(
+        'vars' => $vars,
+        'markup' => $markup,
+      ));
+    }
+    else {
+      return $markup;
+    }
   }
 
   public function get_qr_image() {
