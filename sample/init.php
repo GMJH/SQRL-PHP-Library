@@ -4,6 +4,6 @@
 include_once '../sqrl.php';
 
 // Load sample classes
-include_once 'SQRL.php';
-include_once 'Client.php';
-include_once 'Account.php';
+include_once 'includes/SQRL.php';
+include_once 'includes/Client.php';
+include_once 'includes/Account.php';

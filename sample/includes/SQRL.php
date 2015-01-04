@@ -10,8 +10,12 @@ namespace JurgenhaasRamriot\SQRL\Sample;
  */
 class SQRL extends \JurgenhaasRamriot\SQRL\SQRL {
 
-  const PATH_PREFIX = '';
-  const PATH_CLIENT = 'auth.php';
+  const PATH_PREFIX   = '';
+  const PATH_CLIENT   = 'auth.php';
+  const PATH_AJAX     = 'ajax.php?operation=';
+  const PATH_VIEW     = 'view.php?operation=';
+  const PATH_USER     = 'user.php';
+  const PATH_QR_IMAGE = 'image.php';
 
   #region Private ==============================================================
 
@@ -24,14 +28,14 @@ class SQRL extends \JurgenhaasRamriot\SQRL\SQRL {
   #region Abstract implementation ==============================================
 
   protected function build_base_url() {
-    global $base_url;
-    $scheme = file_uri_scheme($base_url);
-    $sqrl_base_url = $scheme ? substr($base_url, strlen($scheme) + 3) : $base_url;
-    return $sqrl_base_url;
+    $host = $this->get_server_value('HTTP_HOST');
+    $script = $this->get_server_value('SCRIPT_NAME');
+    $path = substr($script, 0, strrpos($script, '/'));
+    return $host . $path;
   }
 
   public function is_secure_connection_available() {
-    return $GLOBALS['is_https'];
+    return FALSE;
   }
 
   public function encrypt($data, $is_cookie) {
