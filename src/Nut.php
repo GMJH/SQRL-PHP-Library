@@ -142,13 +142,13 @@ class Nut extends Common {
   }
 
   protected function encrypt() {
-    $data = $this->wrapper->encrypt($this->nut_encoded, $this::IS_COOKIE);
+    $data = $this->base64_encode($this->wrapper->encrypt($this->nut_encoded, $this::IS_COOKIE));
     $this->nut_public = strtr($data, array('+' => '-', '/' => '_', '=' => ''));
   }
 
   private function decrypt() {
     $ref = $this->nut_public;
-    $data = strtr($ref, array('-' => '+', '_' => '/')) . '==';
+    $data = $this->base64_decode(strtr($ref, array('-' => '+', '_' => '/')) . '==');
     $this->nut_encoded = $this->wrapper->decrypt($data, $this::IS_COOKIE);
 
   }
