@@ -74,7 +74,7 @@ class SQRL extends \JurgenhaasRamriot\SQRL\SQRL {
     $filename = $this->get_filename('auth');
     if (file_exists($filename)) {
       $uid = file_get_contents($filename);
-      file_delete($filename);
+      unlink($filename);
       return TRUE;
     }
     return FALSE;

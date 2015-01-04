@@ -32,7 +32,7 @@ class Client extends \JurgenhaasRamriot\SQRL\Client {
     $filename = $this->get_filename();
     if (file_exists($filename)) {
       $result = file_get_contents($filename);
-      file_delete($filename);
+      unlink($filename);
       return $result;
     }
     return FALSE;
