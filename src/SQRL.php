@@ -183,6 +183,19 @@ abstract class SQRL extends Common {
     return $this->is_secure_connection_available() ? 443 : 80;
   }
 
+  public function get_qr_image() {
+    if (!$this->is_valid()) {
+      header('Status: 404 Not Found');
+      print '';
+      exit;
+    }
+
+    $string = $this->get_nut_url();
+    header('Content-type: image/png');
+    include_once __DIR__ . '/qrcode/phpqrcode.php';
+    \QRcode::png($string, FALSE, QR_ECLEVEL_L, 3, 4, FALSE);
+  }
+
   #endregion
 
   #region Internal =============================================================
