@@ -69,7 +69,7 @@ class Account extends \JurgenhaasRamriot\SQRL\Account {
    * @return bool
    */
   public function command_login($client) {
-    return FALSE;
+    return TRUE;
   }
 
   /**

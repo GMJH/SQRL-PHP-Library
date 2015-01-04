@@ -235,7 +235,7 @@ abstract class SQRL extends Common {
   public function get_markup($operation, $force = FALSE, $json = FALSE) {
     $this->set_operation($operation);
 
-    if (!$force && $this->is_page_cached() && !empty($_COOKIE['has_js'])) {
+    if (!$force && $this->is_page_cached()) {
       $image = $this->get_icon();
       $markup = '<div id="sqrl-cache"><a href="' . $this->get_path($this::PATH_VIEW . $operation, FALSE) . '">' . $image . '</a></div>';
     }
@@ -253,7 +253,7 @@ abstract class SQRL extends Common {
       'pollInterval' => $this->get_poll_interval(FALSE) * 1000,
     );
     // Add JavaScript and CSS to the page.
-    if (!$force && !empty($_COOKIE['has_js'])) {
+    if (!$force) {
       $script = '<script type="text/javascript">' . "\n";
       $script .= '<!--//--><![CDATA[//><!--' . "\n";
       $script .= 'var sqrl = JSON.parse(' . "'" . json_encode($vars) . "');\n";

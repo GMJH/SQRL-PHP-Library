@@ -44,7 +44,7 @@ class Client extends \JurgenhaasRamriot\SQRL\Client {
    */
   protected function find_user_account($key) {
     $uid = 1;
-    return empty($uid) ? FALSE : new Account(user_load($uid));
+    return empty($uid) ? FALSE : new Account($uid);
   }
 
   #region Commands =============================================================
