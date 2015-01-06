@@ -202,7 +202,7 @@ abstract class SQRL extends Common {
   /**
    * return number of microseconds since last unix timestamp change,
    * scaled  by 10 modulo 65536, see Apache Module mod_unique_id for
-   * justification that this is adiquately request unique.
+   * justification that this is adequately request unique.
    */
   public function counter() {
     list($usec, $sec) = explode(" ", microtime());
