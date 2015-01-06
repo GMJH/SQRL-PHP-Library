@@ -74,7 +74,6 @@ abstract class SQRL extends Common {
   abstract public function decrypt($data, $is_cookie);
   abstract public function save($params);
   abstract public function load();
-  abstract public function counter();
   abstract public function authenticate($account);
   abstract protected function authenticated();
 
@@ -198,6 +197,16 @@ abstract class SQRL extends Common {
 
   public function get_connection_port() {
     return $this->is_secure_connection_available() ? 443 : 80;
+  }
+
+  /**
+   * return number of microseconds since last unix timestamp change,
+   * scaled  by 10 modulo 65536, see Apache Module mod_unique_id for
+   * justification that this is adiquately request unique.
+   */
+  public function counter() {
+    list($usec, $sec) = explode(" ", microtime());
+    return (intval($usec * 100000)) % 65536;
   }
 
   public function is_page_cached() {
