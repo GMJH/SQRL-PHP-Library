@@ -101,6 +101,7 @@ class Nut extends Common {
       $this->status = self::STATUS_INVALID;
       $this->error_code = $e->getCode();
       $this->error_message = $e->getMessage();
+      throw $e;
     }
   }
 
@@ -130,6 +131,7 @@ class Nut extends Common {
       $this->status = self::STATUS_INVALID;
       $this->error_code = $e->getCode();
       $this->error_message = $e->getMessage();
+      throw $e;
     }
   }
 

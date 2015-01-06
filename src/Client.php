@@ -205,6 +205,9 @@ abstract class Client extends Common {
    * https://www.grc.com/sqrl/semantics.htm: The data to be signed are the two
    * base64url encoded values of the “client=” and “server=” parameters with the
    * “server=” value concatenated to the end of the “client=” value.
+   *
+   * @throws ClientException
+   * @throws \Exception
    */
   private function process() {
     $this->client_sigs = array(
@@ -227,7 +230,7 @@ abstract class Client extends Common {
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
       $this->message = $e->getMessage();
-      return;
+      throw $e;
     }
 
     try {
@@ -237,7 +240,7 @@ abstract class Client extends Common {
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
       $this->message = $e->getMessage();
-      return;
+      throw $e;
     }
 
     $this->valid = TRUE;
@@ -302,6 +305,11 @@ abstract class Client extends Common {
     return $commands;
   }
 
+  /**
+   * @param array $commands
+   * @throws ClientException
+   * @throws \Exception
+   */
   private function commands_execute($commands) {
     try {
       foreach ($commands as $command) {
@@ -321,6 +329,7 @@ abstract class Client extends Common {
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
       $this->message = $e->getMessage();
+      throw $e;
     }
   }
 
