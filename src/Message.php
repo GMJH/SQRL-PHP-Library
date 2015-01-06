@@ -30,6 +30,11 @@ class Message {
   private $callback_log;
   private $callback_message;
 
+  public function __construct() {
+    // Nothing to do here but we have to have the constructor to avoid
+    // warnings in some PHP versions.
+  }
+
   /**
    * @param $type
    *  Either 'log' or 'message'
