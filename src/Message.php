@@ -71,7 +71,7 @@ class Message {
    * @param string $message
    * @param array $variables
    */
-  public function message($type, $message, $variables = array()) {
+  public function msg($type, $message, $variables = array()) {
     if (!empty($this->callback_message) && function_exists($this->callback_message)) {
       $this->sanitize($variables);
       call_user_func($this->callback_message, $type, $message, $variables);
