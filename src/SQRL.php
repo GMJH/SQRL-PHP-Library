@@ -2,21 +2,21 @@
 /**
  * SQRL
  *
- * Copyright (c)
+ * Copyright (c) 2014-2015 Gary Marriott & Jürgen Haas
  *
  * Description
  *
- * Licence
+ * Licence     GNU LGPL V3
  *
  * @package    SQRL
  * @author     Jürgen Haas <juergen@paragon-es.de>
  * @author     Gary Marriott <ramriot@gmail.com>
- * @copyright  ...
- * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @link       https://bitbucket.org/jurgenhaas/sqrl-php
+ * @copyright  2014-2015 Gary Marriott & Jürgen Haas
+ * @license    http://opensource.org/licenses/LGPL-3.0
+ * @link       https://github.com/GMJH/SQRL-PHP-Library
  */
 
-namespace JurgenhaasRamriot\SQRL;
+namespace GMJH\SQRL;
 
 /**
  * This class defines the main structure for SQRL nut building,
@@ -59,7 +59,7 @@ abstract class SQRL extends Common {
   }
 
   /**
-   * @return \JurgenhaasRamriot\SQRL\Message
+   * @return \GMJH\SQRL\Message
    */
   public static function get_message() {
     if (!isset(self::$message)) {

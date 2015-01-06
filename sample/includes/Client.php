@@ -3,9 +3,9 @@
  * @author jurgenhaas
  */
 
-namespace JurgenhaasRamriot\SQRL\Sample;
+namespace GMJH\SQRL\Sample;
 
-use JurgenhaasRamriot\SQRL\ClientException;
+use GMJH\SQRL\ClientException;
 
 /**
  * An override class for Sample SQRL client operations
@@ -14,7 +14,7 @@ use JurgenhaasRamriot\SQRL\ClientException;
  *
  * @link
  */
-class Client extends \JurgenhaasRamriot\SQRL\Client {
+class Client extends \GMJH\SQRL\Client {
 
   public function site_name() {
     return 'This is a sample site';

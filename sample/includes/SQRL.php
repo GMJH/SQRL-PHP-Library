@@ -3,12 +3,12 @@
  * @author jurgenhaas
  */
 
-namespace JurgenhaasRamriot\SQRL\Sample;
+namespace GMJH\SQRL\Sample;
 
 /**
  *
  */
-class SQRL extends \JurgenhaasRamriot\SQRL\SQRL {
+class SQRL extends \GMJH\SQRL\SQRL {
 
   const PATH_PREFIX   = '';
   const PATH_CLIENT   = 'auth.php';

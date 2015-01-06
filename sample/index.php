@@ -11,7 +11,7 @@
 
 <?php
 include_once 'init.php';
-$sqrl = new \JurgenhaasRamriot\SQRL\Sample\SQRL(FALSE);
+$sqrl = new \GMJH\SQRL\Sample\SQRL(FALSE);
 print $sqrl->get_markup('login');
 ?>
 

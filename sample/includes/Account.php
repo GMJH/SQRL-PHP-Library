@@ -3,7 +3,7 @@
  * @author jurgenhaas
  */
 
-namespace JurgenhaasRamriot\SQRL\Sample;
+namespace GMJH\SQRL\Sample;
 
 /**
  * An override class for Sample SQRL account
@@ -12,7 +12,7 @@ namespace JurgenhaasRamriot\SQRL\Sample;
  *
  * @link
  */
-class Account extends \JurgenhaasRamriot\SQRL\Account {
+class Account extends \GMJH\SQRL\Account {
 
   #region Command ==============================================================
 

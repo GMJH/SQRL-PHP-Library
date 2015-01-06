@@ -5,7 +5,7 @@ if (empty($_GET['operation'])) {
 }
 include_once 'init.php';
 
-$sqrl = new \JurgenhaasRamriot\SQRL\Sample\SQRL(FALSE);
+$sqrl = new \GMJH\SQRL\Sample\SQRL(FALSE);
 ?>
 <!DOCTYPE html>
 <html>

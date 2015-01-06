@@ -4,15 +4,15 @@
  */
 
 /*
- * Version: 0.0.1
- * Build: 20141231-02
+ * Version: 0.0.2
+ * Build: 20150106-003
  */
 
 /**
  *
  */
 spl_autoload_register(function ($class) {
-  $prefix = 'JurgenhaasRamriot\\SQRL\\';
+  $prefix = 'GMJH\\SQRL\\';
   $base_dir = __DIR__ . '/src/';
 
   // does the class use the namespace prefix?
