@@ -137,17 +137,25 @@ abstract class Common {
   }
 
   /**
+   * return a unsigned integer repesenting an IPV4/6 address
+   * 32 bit for IPV4 and 128 bit for IPV6
+   *
    * @param $ip
    * @return int|number
    */
   protected function _ip_to_long($ip) {
-    if (strlen($ip) > 15) {
-      //for IPV6 output long from ast 8 bytes of sha1
-      return hexdec(substr(hash('sha1', $ip, FALSE), -8));
+    if (version_compare(phpversion(), '5.1.0', '<')) {
+      // php version isn't high enough
+      if (strlen($ip) > 15) {
+        //for IPV6 output long from last 8 bytes of sha1
+        return hexdec(substr(hash('sha1', $ip, FALSE), -8));
+      }
+      else {
+        return ip2long($ip);
+      }
     }
-    else {
-      return ip2long($ip);
-    }
+    //PHP_VERSION >= 5.1.0
+    return inet_pton($ip);
   }
 
   /**
@@ -159,10 +167,16 @@ abstract class Common {
   }
 
   /**
-   * @param $bytes
-   * @param $start
-   * @param $len
+   * Extract specific bytes from a byteString
+   *
+   * @param string $bytes
+   *  STRING of bytes
+   * @param int $start
+   *  INT string pointer to first byte to be extracted
+   * @param int $len
+   *  INT number of butes to extract
    * @return string
+   *  STRING of bytes
    */
   protected function _bytes_extract($bytes, $start, $len) {
     $result = '';

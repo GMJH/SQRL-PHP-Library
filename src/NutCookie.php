@@ -95,6 +95,10 @@ final class NutCookie extends Nut {
   }
 
   /**
+   * A time safe string comparison function for the paranoid amongst you.
+   * For a given length of two identically long strings it should always take
+   * the same time to declare them identical or otherwise.
+   *
    * @param $str1
    * @param $str2
    * @return bool

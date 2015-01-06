@@ -156,16 +156,20 @@ class Nut extends Common {
   private function encode() {
     $ref = $this->nut_raw;
     //format bytes
-    $this->nut_encoded = pack('LLL', $ref['time'], $this->_ip_to_long($ref['ip']), $ref['counter']) . $ref['random'];
+    $this->nut_encoded = pack('L', $ref['time']) .
+      pack('L', $ref['counter']) .
+      $ref['random'] .
+      $this->_dtr_pton($ref['ip']);
   }
 
   private function decode() {
-    if (strlen($this->nut_encoded) == 16) {
+    $ref = $this->nut_encoded;
+    if (strlen($ref) == 16 || strlen($ref) == 28) {
       $this->nut_raw = array(
-        'time' => $this->decode_time($this->nut_encoded),
-        'ip' => $this->decode_ip($this->nut_encoded),
-        'counter' => $this->decode_counter($this->nut_encoded),
-        'random' => $this->decode_random($this->nut_encoded),
+        'time'    => $this->decode_time($ref),
+        'counter' => $this->decode_counter($ref),
+        'random'  => $this->decode_random($ref),
+        'ip'      => $this->decode_ip($ref),
       );
     }
     else {
@@ -178,18 +182,18 @@ class Nut extends Common {
     return array_shift($output);
   }
 
-  private function decode_ip($bytes) {
-    $output = unpack('L', $this->_bytes_extract($bytes, 4, 4));
-    return $this->_long_to_ip(array_shift($output));
-  }
-
   private function decode_counter($bytes) {
-    $output = unpack('L', $this->_bytes_extract($bytes, 8, 4));
+    $output = unpack('L', $this->_bytes_extract($bytes, 4, 4));
     return array_shift($output);
   }
 
   private function decode_random($bytes) {
-    return $this->_bytes_extract($bytes, 12, 4);
+    return $this->_bytes_extract($bytes, 8, 4);
+  }
+
+  private function decode_ip($bytes) {
+    $length = (strlen($bytes) == 16) ? 4 : 16;
+    return $this->_dtr_ntop($this->_bytes_extract($bytes, 12, $length));
   }
 
   private function validate_expiration() {
@@ -216,6 +220,43 @@ class Nut extends Common {
     $this->wrapper->set_operation($params['op']);
     $this->wrapper->set_nut_ip_address($params['ip']);
     $this->wrapper->set_operation_params($params['params']);
+  }
+
+  /**
+   * dtr_pton
+   *
+   * Converts a printable IP into an unpacked binary string
+   *
+   * @author Mike Mackintosh - mike@bakeryphp.com
+   * @param string $ip
+   * @return string
+   * @throws \Exception
+   */
+  private function _dtr_pton($ip) {
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+      return current(unpack('A4', inet_pton($ip)));
+    }
+    else if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+      return current(unpack('A16', inet_pton($ip)));
+    }
+    throw new \Exception('Please supply a valid IPv4 or IPv6 address');
+  }
+
+  /**
+   * dtr_ntop
+   *
+   * Converts an unpacked binary string into a printable IP
+   *
+   * @author Mike Mackintosh - mike@bakeryphp.com
+   * @param string $str
+   * @return string
+   * @throws \Exception
+   */
+  private function _dtr_ntop($str) {
+    if (strlen($str) == 16 || strlen($str) == 4) {
+      return inet_ntop(pack('A'. strlen($str), $str));
+    }
+    throw new \Exception('Please provide a 4 or 16 byte string');
   }
 
   private function random_bytes($count) {
