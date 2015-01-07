@@ -26,6 +26,7 @@ class Message {
   const LOG_LEVEL_ERROR = 1;
   const LOG_LEVEL_WARNING = 2;
   const LOG_LEVEL_INFO = 3;
+  const LOG_LEVEL_DEBUG = 4;
 
   private $callback_log;
   private $callback_message;
