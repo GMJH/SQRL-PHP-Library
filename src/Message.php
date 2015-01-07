@@ -62,6 +62,13 @@ class Message {
    */
   public function log($severity, $message, $variables = array()) {
     if (!empty($this->callback_log) && function_exists($this->callback_log)) {
+      if ($severity == self::LOG_LEVEL_DEBUG) {
+        $variables += array(
+          'post' => $_POST,
+          'get' => $_GET,
+          'cookie' => $_COOKIE,
+        );
+      }
       $this->sanitize($variables);
       call_user_func($this->callback_log, $severity, $message, $variables);
     }
