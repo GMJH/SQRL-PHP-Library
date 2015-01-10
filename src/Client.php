@@ -58,7 +58,9 @@ abstract class Client extends Common {
    */
   public function __construct($sqrl) {
     $this->sqrl = $sqrl;
+    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
+    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Incoming client request processed', array('client' => $this,));
     if ($this->valid) {
       $commands = $this->commands_determine();
       $this->commands_execute($commands);
@@ -357,7 +359,7 @@ abstract class Client extends Common {
 
     $base64 = $this->encode_response($response);
 
-    SQRL::get_message()->log(Message::LOG_LEVEL_INFO, 'Server response', array('values' => $response, 'base64' => $base64,));
+    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Server response', array('values' => $response, 'base64' => $base64,));
     $this->save($base64);
 
     $headers = array(
