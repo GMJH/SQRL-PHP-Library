@@ -59,6 +59,16 @@ abstract class SQRL extends Common {
   }
 
   /**
+   * @return string
+   */
+  public function toDebug() {
+    return json_encode(array(
+      'nut_ip_address' => $this->nut_ip_address,
+      'nut' => empty($this->nut) ? 'null' : $this->nut->toDebug(),
+    ));
+  }
+
+  /**
    * @return \GMJH\SQRL\Message
    */
   public static function get_message() {

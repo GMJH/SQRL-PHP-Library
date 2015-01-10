@@ -18,15 +18,15 @@
 
 namespace GMJH\SQRL;
 
+define('SQRL_LOG_LEVEL_ERROR', 1);
+define('SQRL_LOG_LEVEL_WARNING', 2);
+define('SQRL_LOG_LEVEL_INFO', 3);
+define('SQRL_LOG_LEVEL_DEBUG', 4);
+
 /**
  *
  */
 class Message {
-
-  const LOG_LEVEL_ERROR = 1;
-  const LOG_LEVEL_WARNING = 2;
-  const LOG_LEVEL_INFO = 3;
-  const LOG_LEVEL_DEBUG = 4;
 
   private $callback_log;
   private $callback_message;
@@ -62,7 +62,7 @@ class Message {
    */
   public function log($severity, $message, $variables = array()) {
     if (!empty($this->callback_log) && function_exists($this->callback_log)) {
-      if ($severity == self::LOG_LEVEL_DEBUG) {
+      if ($severity == SQRL_LOG_LEVEL_DEBUG) {
         $variables += array(
           'post' => $_POST,
           'get' => $_GET,
@@ -136,7 +136,12 @@ class Message {
   private function sanitize(&$variables) {
     foreach ($variables as $key => $value) {
       if (!is_scalar($value)) {
-        $variables[$key] = print_r($value, TRUE);
+        if (method_exists($value, 'toDebug')) {
+          $variables[$key] = $value->toDebug();
+        }
+        else {
+          $variables[$key] = json_encode($value);
+        }
       }
     }
   }

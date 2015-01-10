@@ -61,6 +61,24 @@ class Nut extends Common {
     $this->wrapper = $wrapper;
   }
 
+  /**
+   * @return string
+   */
+  public function toDebug() {
+    if (empty($this->nut_raw)) {
+      $raw = 'null';
+    }
+    else {
+      $raw = $this->nut_raw;
+      $raw['random'] = base64_encode($raw['random']);
+    }
+    return json_encode(array(
+      'nut_public' => $this->nut_public,
+      'nut_raw' => $raw,
+      'cookie_nut' => empty($this->cookie_nut) ? 'null' : $this->cookie_nut->toDebug(),
+    ));
+  }
+
   public function requires_cookie() {
     $this->cookie_nut = new NutCookie($this->wrapper);
     $this->cookie_nut->set_url_nut($this);

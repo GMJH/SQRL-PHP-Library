@@ -58,14 +58,26 @@ abstract class Client extends Common {
    */
   public function __construct($sqrl) {
     $this->sqrl = $sqrl;
-    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Incoming client request');
+    SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
-    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Incoming client request processed', array('client' => $this,));
+    SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request processed', array('client class' => $this,));
     if ($this->valid) {
       $commands = $this->commands_determine();
       $this->commands_execute($commands);
     }
     $this->respond();
+  }
+
+  /**
+   * @return string
+   */
+  public function toDebug() {
+    return json_encode(array(
+      'valid' => $this->valid ? 'yes' : 'no',
+      'http_code' => $this->http_code,
+      'message' => $this->message,
+      'sqrl' => $this->sqrl->toDebug(),
+    ));
   }
 
   #region Main =================================================================
@@ -359,7 +371,7 @@ abstract class Client extends Common {
 
     $base64 = $this->encode_response($response);
 
-    SQRL::get_message()->log(Message::LOG_LEVEL_DEBUG, 'Server response', array('values' => $response, 'base64' => $base64,));
+    SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Server response', array('values' => $response, 'base64' => $base64,));
     $this->save($base64);
 
     $headers = array(
