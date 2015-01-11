@@ -145,12 +145,6 @@ abstract class Client extends Common {
    */
   abstract protected function find_user_account($key);
 
-  /**
-   * @return bool
-   * @throws ClientException
-   */
-  abstract protected function command_create();
-
   #endregion
 
   #region Validation ===========================================================
@@ -312,7 +306,8 @@ abstract class Client extends Common {
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
       $this->message = $e->getMessage();
-      throw $e;
+      $this->sqrl->add_message_to_browser('error', 'Invalid client request: ' . $this->message, TRUE);
+      return;
     }
 
     try {
@@ -322,7 +317,8 @@ abstract class Client extends Common {
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
       $this->message = $e->getMessage();
-      throw $e;
+      $this->sqrl->add_message_to_browser('error', 'Invalid client request: ' . $this->message, TRUE);
+      return;
     }
 
     $this->valid = TRUE;
@@ -350,9 +346,8 @@ abstract class Client extends Common {
     }
 
     if (!isset($account)) {
-      if ($this->user_account_register_allowed()) {
-        $this->tif |= self::FLAG_ACCOUNT_CREATION_ALLOWED;
-      }
+      // No longer testing if user account creation is allowed here. This
+      // should be handled by the server implementation later on.
       return;
     }
 
@@ -428,6 +423,31 @@ abstract class Client extends Common {
 
       throw $e;
     }
+  }
+
+  /**
+   * This command is called if the client wants to login but there is no
+   * matching user account available yet. This should now start the process to
+   * ask the user if they wanted to create a new account - without further
+   * interaction with the client.
+   *
+   * @return bool
+   * @throws ClientException
+   */
+  private function command_login() {
+    if (!$this->user_account_register_allowed()) {
+      // We can't create new accounts on this server.
+      throw new ClientException('Creating new user accounts has been disabled.');
+    }
+
+    if ($this->sqrl->is_auto_create_account()) {
+      $this->sqrl->create_new_account();
+    }
+    else {
+      $this->sqrl->ask_to_create_new_account();
+    }
+
+    return FALSE;
   }
 
   /**

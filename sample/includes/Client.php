@@ -59,23 +59,4 @@ class Client extends \GMJH\SQRL\Client {
     return empty($uid) ? FALSE : new Account($uid);
   }
 
-  #region Commands =============================================================
-
-  /**
-   * @return bool
-   * @throws ClientException
-   */
-  protected function command_create() {
-    if ($this->account) {
-      // We can't create a new account if we found a matching one before.
-      throw new ClientException('Can not create an account when a known account is provided');
-    }
-    $this->account = new Account(1);
-    $this->set_message('Successfully created user account', self::FLAG_IDK_MATCH);
-    $this->account->command_login($this);
-    return TRUE;
-  }
-
-  #endregion
-
 }

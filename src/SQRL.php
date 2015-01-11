@@ -29,6 +29,7 @@ abstract class SQRL extends Common {
   const PATH_AJAX     = 'ajax/';
   const PATH_VIEW     = 'view/';
   const PATH_USER     = 'action';
+  const PATH_CREATE   = 'create';
   const PATH_QR_IMAGE = 'img';
   const QR_SIZE       = 160;
   const POLL_INTERVAL_INITIAL = 5;
@@ -118,6 +119,11 @@ abstract class SQRL extends Common {
    * @return bool
    */
   abstract protected function authenticated();
+
+  /**
+   * @return bool
+   */
+  abstract public function create_new_account();
 
   #region Main Final ===========================================================
 
@@ -336,6 +342,13 @@ abstract class SQRL extends Common {
   }
 
   /**
+   * @return bool
+   */
+  public function is_auto_create_account() {
+    return FALSE;
+  }
+
+  /**
    * @return int
    */
   public function get_qr_size() {
@@ -367,7 +380,12 @@ abstract class SQRL extends Common {
     $message = '';
     $stop_polling = FALSE;
     foreach ($this->messages_to_browser as $msg) {
-      $message .= '<div class="sqrl-message sqrl-message-' . $msg['type'] . '">' . $msg['message'] . '</div>';
+      if ($msg['type'] == 'destination') {
+        $result['location'] = $msg['message'];
+      }
+      else {
+        $message .= '<div class="sqrl-message sqrl-message-' . $msg['type'] . '">' . $msg['message'] . '</div>';
+      }
       if (!empty($message['stop polling'])) {
         $stop_polling = TRUE;
       }
@@ -486,6 +504,14 @@ abstract class SQRL extends Common {
   public function get_base_path() {
     $domain_length = strpos($this->base_url, '/');
     return $domain_length ? substr($this->base_url, $domain_length) . '/' : '/';
+  }
+
+  /**
+   *
+   */
+  public function ask_to_create_new_account() {
+    $this->set_operation_param('validated nut', $this->get_nut());
+    $this->add_message_to_browser('destination', $this->get_path($this::PATH_CREATE), TRUE);
   }
 
   /**

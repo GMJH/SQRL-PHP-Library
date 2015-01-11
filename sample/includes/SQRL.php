@@ -112,6 +112,17 @@ class SQRL extends \GMJH\SQRL\SQRL {
     return FALSE;
   }
 
+  /**
+   * @return bool
+   */
+  public function is_auto_create_account() {
+    return TRUE;
+  }
+
+  protected function create_new_account() {
+    return TRUE;
+  }
+
   #endregion
 
 }
