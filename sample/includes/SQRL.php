@@ -119,7 +119,7 @@ class SQRL extends \GMJH\SQRL\SQRL {
     return TRUE;
   }
 
-  protected function create_new_account() {
+  public function create_new_account() {
     return TRUE;
   }
 

@@ -5,8 +5,6 @@
 
 namespace GMJH\SQRL\Sample;
 
-use GMJH\SQRL\ClientException;
-
 /**
  * An override class for Sample SQRL client operations
  *
