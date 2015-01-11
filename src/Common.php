@@ -20,11 +20,12 @@ namespace GMJH\SQRL;
 
 /**
  * A common class for helper functions in assistance of SQRL nut and client operations
- *
- * @author ramriot
  */
 abstract class Common {
 
+  /**
+   * @return int
+   */
   public function get_request_time() {
     static $time;
     if (!isset($time)) {
@@ -41,18 +42,32 @@ abstract class Common {
     return $time;
   }
 
+  /**
+   * @param int $timestamp
+   * @return bool
+   */
   public function is_timeout($timestamp) {
     return ($timestamp + $this->get_lifetime() < $this->get_request_time());
   }
 
+  /**
+   * @return int
+   */
   public function get_timeout() {
     return ($this->get_lifetime() + $this->get_request_time());
   }
 
+  /**
+   * @return int
+   */
   public function get_lifetime() {
     return $this->set_lifetime();
   }
 
+  /**
+   * @param int $lifetime
+   * @return int
+   */
   public function set_lifetime($lifetime = NULL) {
     static $time;
     if (isset($lifetime)) {
@@ -71,7 +86,7 @@ abstract class Common {
    * @param string $key
    * @return string
    */
-  function get_server_value($key) {
+  public function get_server_value($key) {
     return isset($_SERVER[$key]) ? $_SERVER[$key] : 'unknown';
   }
 
@@ -82,11 +97,14 @@ abstract class Common {
    * @param string $key
    * @return string
    */
-  function get_post_value($key) {
+  public function get_post_value($key) {
     return isset($_POST[$key]) ? $_POST[$key] : '';
   }
 
-  function get_ip_address() {
+  /**
+   * @return bool|string
+   */
+  public function get_ip_address() {
     // TODO: Should private range and/or reserved range be allowed or not?
     // $filter = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
     $filter = FALSE;
@@ -116,10 +134,10 @@ abstract class Common {
   /**
    * Returns a URL safe base64 encoded version of the string.
    *
-   * @param $string
+   * @param string $string
    * @return string
    */
-  function base64_encode($string) {
+  public function base64_encode($string) {
     $data = base64_encode($string);
     // Modify the output so it's safe to use in URLs.
     return strtr($data, array('+' => '-', '/' => '_', '=' => ''));
@@ -128,10 +146,10 @@ abstract class Common {
   /**
    * Returns the base64 decoded version of the URL safe string.
    *
-   * @param $string
+   * @param string $string
    * @return string
    */
-  function base64_decode($string) {
+  public function base64_decode($string) {
     $string = strtr($string, array('-' => '+', '_' => '/'));
     return base64_decode($string);
   }
@@ -140,7 +158,7 @@ abstract class Common {
    * return a unsigned integer repesenting an IPV4/6 address
    * 32 bit for IPV4 and 128 bit for IPV6
    *
-   * @param $ip
+   * @param string $ip
    * @return int|number
    */
   protected function _ip_to_long($ip) {
@@ -159,7 +177,7 @@ abstract class Common {
   }
 
   /**
-   * @param $ip
+   * @param string $ip
    * @return string
    */
   protected function _long_to_ip($ip) {
@@ -189,7 +207,7 @@ abstract class Common {
   }
 
   /**
-   * @param $decimal_i
+   * @param string $decimal_i
    * @return string
    */
   protected function dec2bin_i($decimal_i) {
@@ -205,7 +223,7 @@ abstract class Common {
   protected $b = '';
 
   /**
-   * @param $y
+   * @param string $y
    * @return mixed
    */
   protected function encodeint($y) {
@@ -215,7 +233,7 @@ abstract class Common {
   }
 
   /**
-   * @param $bits
+   * @param string $bits
    * @return string
    */
   protected function bitsToString($bits) {
@@ -224,8 +242,8 @@ abstract class Common {
   }
 
   /**
-   * @param $h
-   * @param $i
+   * @param string $h
+   * @param string $i
    * @return int
    */
   protected function bit($h, $i) {
@@ -233,7 +251,7 @@ abstract class Common {
   }
 
   /**
-   * @param $s
+   * @param string $s
    * @return int|string
    */
   protected function decodeint($s) {

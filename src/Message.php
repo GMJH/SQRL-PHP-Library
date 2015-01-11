@@ -26,20 +26,23 @@ define('SQRL_LOG_LEVEL_DEBUG', 4);
 /**
  *
  */
-class Message {
+final class Message {
 
   private $callback_log;
-  private $callback_message;
+  private $callback_msg;
 
+  /**
+   *
+   */
   public function __construct() {
     // Nothing to do here but we have to have the constructor to avoid
     // warnings in some PHP versions.
   }
 
   /**
-   * @param $type
-   *  Either 'log' or 'message'
-   * @param $callback
+   * @param string $type
+   *  Either 'log' or 'msg'
+   * @param string $callback
    *  Function name of the callback to be used for the given $type
    */
   public function register_callback($type, $callback) {
@@ -48,8 +51,8 @@ class Message {
         $this->callback_log = $callback;
         break;
 
-      case 'message':
-        $this->callback_message = $callback;
+      case 'msg':
+        $this->callback_msg = $callback;
         break;
 
     }
@@ -64,9 +67,9 @@ class Message {
     if (!empty($this->callback_log) && function_exists($this->callback_log)) {
       if ($severity == SQRL_LOG_LEVEL_DEBUG) {
         $variables += array(
-          'post' => $_POST,
-          'get' => $_GET,
-          'cookie' => $_COOKIE,
+          'sqrl-post' => $_POST,
+          'sqrl-get' => $_GET,
+          'sqrl-cookie' => $_COOKIE,
         );
       }
       $this->sanitize($variables);
@@ -80,16 +83,16 @@ class Message {
    * @param array $variables
    */
   public function msg($type, $message, $variables = array()) {
-    if (!empty($this->callback_message) && function_exists($this->callback_message)) {
+    if (!empty($this->callback_msg) && function_exists($this->callback_msg)) {
       $this->sanitize($variables);
-      call_user_func($this->callback_message, $type, $message, $variables);
+      call_user_func($this->callback_msg, $type, $message, $variables);
     }
   }
 
   /**
    * helper function to do token replacement in strings
    *
-   * @param $string
+   * @param string $string
    * @param array $args
    * @return string
    */
@@ -118,7 +121,7 @@ class Message {
   }
 
   /**
-   * @param $text
+   * @param string $text
    * @return string
    */
   private function check_plain($text) {
@@ -126,13 +129,16 @@ class Message {
   }
 
   /**
-   * @param $text
+   * @param string $text
    * @return string
    */
   private function placeholder($text) {
     return '<em class="placeholder">' . $this->check_plain($text) . '</em>';
   }
 
+  /**
+   * @param array $variables
+   */
   private function sanitize(&$variables) {
     foreach ($variables as $key => $value) {
       if (!is_scalar($value)) {

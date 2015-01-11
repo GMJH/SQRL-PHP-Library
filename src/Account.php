@@ -25,14 +25,36 @@ abstract class Account {
 
   protected $account;
 
+  /**
+   * @param $account
+   *  The account object can be any type (e.g. integer for a user id or stdClass
+   *  for a fully loaded user object) and the implementing instance needs to
+   *  make sure that all methods can deal with the given object.
+   */
   public function __construct($account) {
     $this->account = $account;
   }
 
-  protected function compare($account) {
-    return ($this->account == $account);
+  #region Main (potential overwrite) ===========================================
+
+  /**
+   * @return bool
+   */
+  public function enabled() {
+    return TRUE;
   }
 
+  /**
+   * @return bool
+   */
+  public function logged_in() {
+    return FALSE;
+  }
+
+  /**
+   * @param $account
+   * @return bool
+   */
   public function equals($account) {
     if (empty($account)) {
       return TRUE;
@@ -40,19 +62,24 @@ abstract class Account {
     return $this->compare($account);
   }
 
-  public function enabled() {
-    return TRUE;
+  /**
+   * @param $account
+   * @return bool
+   */
+  protected function compare($account) {
+    return ($this->account == $account);
   }
 
-  public function logged_in() {
-    return FALSE;
-  }
+  #endregion
+
+  #region Abstract methods for implementation ==================================
 
   /**
    * Callback which is called by sqrl_client() if we get a setkey command from
    * the SQRL client in the context of a link operation.
    *
    * @param Client $client
+   * @return bool
    */
   abstract public function command_setkey_link($client);
 
@@ -68,7 +95,7 @@ abstract class Account {
    * for the web server to accept any modification to the account's existing
    * identity association.
    *
-   * @param $client
+   * @param Client $client
    * @return bool
    */
   abstract function command_setkey($client);
@@ -81,7 +108,8 @@ abstract class Account {
    * the client must also provide the valid unlock request signature (urs) for the
    * current values to enable their replacement.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_setlock($client);
 
@@ -93,7 +121,8 @@ abstract class Account {
    * until a new master key can be created and set. A recognized user may therefore
    * request this without supplying any additional credentials.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_disable($client);
 
@@ -103,7 +132,8 @@ abstract class Account {
    * the additional authorization provided by the account's current unlock request
    * signature (urs).
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_enable($client);
 
@@ -115,7 +145,8 @@ abstract class Account {
    * re-associate themselves with the account, though they would first need to
    * authenticate their identity through non-SQRL means.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_delete($client);
 
@@ -125,7 +156,8 @@ abstract class Account {
    * URL. This would be the typical choice in a fully trusted scenario where the
    * user and/or SQRL client was confident that a MITM phishing attack was unlikely.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_login($client);
 
@@ -140,7 +172,8 @@ abstract class Account {
    * the web server (also over a secure HTTPS connection), the logme option is not
    * available.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_logme($client);
 
@@ -153,8 +186,11 @@ abstract class Account {
    * be used along with the login or logme verbs to foreclose any other existing
    * accounts prior to the user logging in with their SQRL credentials.
    *
-   * @param $client
+   * @param Client $client
+   * @return bool
    */
   abstract public function command_logoff($client);
+
+  #endregion
 
 }

@@ -57,7 +57,7 @@ abstract class Client extends Common {
   /**
    * @param SQRL $sqrl
    */
-  public function __construct($sqrl) {
+  final public function __construct($sqrl) {
     $this->sqrl = $sqrl;
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
@@ -67,6 +67,49 @@ abstract class Client extends Common {
       $this->commands_execute($commands);
     }
     $this->respond();
+  }
+
+  #region Main (potential overwrite) ===========================================
+
+  /**
+   * @param string $message
+   * @param int $tif
+   */
+  public function set_message($message, $tif = NULL) {
+    if (isset($tif)) {
+      $this->tif |= $tif;
+    }
+    $this->message = $message;
+  }
+
+  /**
+   * @return int
+   */
+  public function get_tif() {
+    return $this->tif;
+  }
+
+  /**
+   * @param string $key
+   * @return string
+   */
+  public function get_client_var($key) {
+    return isset($this->client_vars[$key]) ? $this->client_vars[$key] : '';
+  }
+
+  /**
+   * @param string $key
+   * @param string $value
+   */
+  public function set_response($key, $value) {
+    $this->response[$key] = $value;
+  }
+
+  /**
+   * @return bool
+   */
+  public function user_account_register_allowed() {
+    return TRUE;
   }
 
   /**
@@ -81,37 +124,39 @@ abstract class Client extends Common {
     ));
   }
 
-  #region Main =================================================================
-
-  public function set_message($message, $tif = FALSE) {
-    if ($tif) {
-      $this->tif |= $tif;
-    }
-    $this->message = $message;
-  }
-
-  public function get_tif() {
-    return $this->tif;
-  }
-
-  public function get_client_var($key) {
-    return isset($this->client_vars[$key]) ? $this->client_vars[$key] : '';
-  }
-
-  public function set_response($key, $value) {
-    $this->response[$key] = $value;
-  }
-
+  /**
+   * @return string
+   */
   abstract public function site_name();
+
+  /**
+   * @param mixed $value
+   */
   abstract protected function save($value);
+
+  /**
+   * @return mixed
+   */
   abstract protected function load();
+
+  /**
+   * @param string $key
+   * @return Account
+   */
   abstract protected function find_user_account($key);
+
+  /**
+   * @return bool
+   */
   abstract protected function command_create();
 
   #endregion
 
   #region Validation ===========================================================
 
+  /**
+   * @throws ClientException
+   */
   private function validate() {
     $this->validate_signatures();
     $this->validate_header();
@@ -120,6 +165,9 @@ abstract class Client extends Common {
     $this->validate_nut();
   }
 
+  /**
+   * @throws ClientException
+   */
   private function validate_signatures() {
     // TODO: Check the signature/pub_key mapping.
     $required_signatures = array(
@@ -148,16 +196,19 @@ abstract class Client extends Common {
   }
 
   /**
-   * @param $signature
+   * @param string $signature
    * @throws ClientException
    */
   private function validate_string($signature) {
     // TODO: Validation of the string's signature.
     if (FALSE) {
-      throw new ClientException('Validation string not signed properly');
+      throw new ClientException('Validation string not signed properly: ' . $signature);
     }
   }
 
+  /**
+   * @throws ClientException
+   */
   private function validate_header() {
     $required_signatures = array();
     foreach ($required_signatures as $key) {
@@ -169,6 +220,9 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   * @throws ClientException
+   */
   private function validate_client_vars() {
     $required_signatures = array();
     foreach ($required_signatures as $key) {
@@ -180,6 +234,9 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   * @throws ClientException
+   */
   private function validate_server_vars() {
     $required_signatures = array();
     foreach ($required_signatures as $key) {
@@ -191,6 +248,9 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   * @throws ClientException
+   */
   private function validate_nut() {
     if (!$this->sqrl->is_valid()) {
       if ($this->sqrl->is_expired()) {
@@ -209,6 +269,9 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   *
+   */
   private function validate_ip_address() {
     if ($this->sqrl->get_nut_ip_address() == $this->get_ip_address()) {
       $this->tif |= self::FLAG_IP_MATCH;
@@ -266,6 +329,9 @@ abstract class Client extends Common {
     $this->message = 'Welcome';
   }
 
+  /**
+   * @throws ClientException
+   */
   private function authenticate() {
     $current_account = $this->find_user_account_by_key('idk');
     $previous_account = $this->find_user_account_by_key('pidk');
@@ -299,6 +365,9 @@ abstract class Client extends Common {
     $this->account = $account;
   }
 
+  /**
+   * @return array
+   */
   private function commands_determine() {
     if ($this->sqrl->get_operation() == 'link') {
       if (empty($this->client_vars['suk']) || empty($this->client_vars['vuk'])) {
@@ -351,6 +420,9 @@ abstract class Client extends Common {
     }
   }
 
+  /**
+   *
+   */
   private function respond() {
     // Build the response body.
     $response = array(
@@ -390,6 +462,10 @@ abstract class Client extends Common {
     exit;
   }
 
+  /**
+   * @param array $values
+   * @return string
+   */
   private function encode_response($values) {
     $output = array();
     foreach ($values as $key => $value) {
@@ -399,7 +475,7 @@ abstract class Client extends Common {
   }
 
   /**
-   * @param $param
+   * @param string $param
    * @return array
    */
   private function decode_parameter($param) {
@@ -417,7 +493,8 @@ abstract class Client extends Common {
   }
 
   /**
-   * @param $key_type
+   * @param string $key_type
+   *  Either "idk" or "pidk".
    * @return Account
    */
   private function find_user_account_by_key($key_type) {
@@ -425,10 +502,6 @@ abstract class Client extends Common {
       return $this->find_user_account($this->client_vars[$key_type]);
     }
     return NULL;
-  }
-
-  protected function user_account_register_allowed() {
-    return TRUE;
   }
 
   #endregion

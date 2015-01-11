@@ -29,13 +29,10 @@ class Nut extends Common {
   const MODE_FETCH = 'fetch';
   const IS_COOKIE  = FALSE;
 
-  const STATUS_INITED = 'inited';
-  const STATUS_VALID = 'validated';
+  const STATUS_INITED  = 'inited';
   const STATUS_INVALID = 'invalid';
-  const STATUS_BUILT = 'built';
+  const STATUS_BUILT   = 'built';
   const STATUS_FETCHED = 'fetched';
-  const STATUS_DECODED = 'decoded';
-  const STATUS_NOCOOKIE = 'nocookie';
 
   // @var Nut $wrapper
   protected $wrapper;
@@ -62,6 +59,47 @@ class Nut extends Common {
     $this->wrapper = $wrapper;
   }
 
+  #region Main =================================================================
+
+  /**
+   *
+   */
+  final public function requires_cookie() {
+    $this->cookie_nut = new NutCookie($this->wrapper);
+    $this->cookie_nut->set_url_nut($this);
+  }
+
+  /**
+   * @return bool
+   */
+  final public function is_valid() {
+    return ($this->status != self::STATUS_INVALID);
+  }
+
+  /**
+   * @return bool
+   */
+  final public function is_expired() {
+    return isset($this->expired) ? $this->expired : FALSE;
+  }
+
+  /**
+   * @return string
+   */
+  final public function get_error_message() {
+    return $this->error_message;
+  }
+
+  /**
+   * @return string
+   * @throws NutException
+   * @throws \Exception
+   */
+  final public function get_nut() {
+    $this->build();
+    return $this->nut_public;
+  }
+
   /**
    * @return string
    */
@@ -80,54 +118,14 @@ class Nut extends Common {
     ));
   }
 
-  public function requires_cookie() {
-    $this->cookie_nut = new NutCookie($this->wrapper);
-    $this->cookie_nut->set_url_nut($this);
-  }
+  #endregion
 
-  final public function is_valid() {
-    return ($this->status != self::STATUS_INVALID);
-  }
+  #region Build ================================================================
 
-  final public function is_expired() {
-    return isset($this->expired) ? $this->expired : FALSE;
-  }
-
-  final public function get_error_message() {
-    return $this->error_message;
-  }
-
-  final public function get_nut() {
-    $this->build();
-    return $this->nut_public;
-  }
-
-  public function fetch() {
-    $this->mode = self::MODE_FETCH;
-    if ($this->status == self::STATUS_FETCHED) {
-      return;
-    }
-    try {
-      $this->nut_public = $this->fetch_nut();
-      $this->decrypt();
-      $this->decode();
-      $this->validate_expiration();
-      $this->load();
-
-      if ($this->cookie_nut instanceof NutCookie) {
-        $this->cookie_nut->fetch();
-      }
-      $this->status = self::STATUS_FETCHED;
-    }
-    catch (NutException $e) {
-      // TODO: Logging.
-      $this->status = self::STATUS_INVALID;
-      $this->error_code = $e->getCode();
-      $this->error_message = $e->getMessage();
-      throw $e;
-    }
-  }
-
+  /**
+   * @throws NutException
+   * @throws \Exception
+   */
   public function build() {
     if ($this->mode != self::MODE_BUILD || $this->status == self::STATUS_BUILT) {
       return;
@@ -158,26 +156,17 @@ class Nut extends Common {
     }
   }
 
-  protected function fetch_nut() {
-    $nut = isset($_GET['nut']) ? $_GET['nut'] : FALSE;
-    if (!$nut) {
-      throw new NutException('Nut missing from GET request');
-    }
-    return $nut;
-  }
-
+  /**
+   *
+   */
   protected function encrypt() {
     $data = $this->base64_encode($this->wrapper->encrypt($this->nut_encoded, $this::IS_COOKIE));
     $this->nut_public = strtr($data, array('+' => '-', '/' => '_', '=' => ''));
   }
 
-  private function decrypt() {
-    $ref = $this->nut_public;
-    $data = $this->base64_decode(strtr($ref, array('-' => '+', '_' => '/')) . '==');
-    $this->nut_encoded = $this->wrapper->decrypt($data, $this::IS_COOKIE);
-
-  }
-
+  /**
+   * @throws \Exception
+   */
   private function encode() {
     $ref = $this->nut_raw;
     //format bytes
@@ -187,6 +176,65 @@ class Nut extends Common {
       $this->_dtr_pton($ref['ip']);
   }
 
+  #endregion
+
+  #region Fetch ================================================================
+
+  /**
+   * @throws NutException
+   * @throws \Exception
+   */
+  public function fetch() {
+    $this->mode = self::MODE_FETCH;
+    if ($this->status == self::STATUS_FETCHED) {
+      return;
+    }
+    try {
+      $this->nut_public = $this->fetch_nut();
+      $this->decrypt();
+      $this->decode();
+      $this->validate_expiration();
+      $this->load();
+
+      if ($this->cookie_nut instanceof NutCookie) {
+        $this->cookie_nut->fetch();
+      }
+      $this->status = self::STATUS_FETCHED;
+    }
+    catch (NutException $e) {
+      // TODO: Logging.
+      $this->status = self::STATUS_INVALID;
+      $this->error_code = $e->getCode();
+      $this->error_message = $e->getMessage();
+      throw $e;
+    }
+  }
+
+  /**
+   * @return bool
+   * @throws NutException
+   */
+  protected function fetch_nut() {
+    $nut = isset($_GET['nut']) ? $_GET['nut'] : FALSE;
+    if (!$nut) {
+      throw new NutException('Nut missing from GET request');
+    }
+    return $nut;
+  }
+
+  /**
+   *
+   */
+  private function decrypt() {
+    $ref = $this->nut_public;
+    $data = $this->base64_decode(strtr($ref, array('-' => '+', '_' => '/')) . '==');
+    $this->nut_encoded = $this->wrapper->decrypt($data, $this::IS_COOKIE);
+
+  }
+
+  /**
+   * @throws NutException
+   */
   private function decode() {
     $ref = $this->nut_encoded;
     if (strlen($ref) == 16 || strlen($ref) == 28) {
@@ -202,25 +250,48 @@ class Nut extends Common {
     }
   }
 
+  /**
+   * @param string $bytes
+   * @return string
+   */
   private function decode_time($bytes) {
     $output = unpack('L', $this->_bytes_extract($bytes, 0, 4));
     return array_shift($output);
   }
 
+  /**
+   * @param string $bytes
+   * @return string
+   */
   private function decode_counter($bytes) {
     $output = unpack('L', $this->_bytes_extract($bytes, 4, 4));
     return array_shift($output);
   }
 
+  /**
+   * @param string $bytes
+   * @return string
+   */
   private function decode_random($bytes) {
     return $this->_bytes_extract($bytes, 8, 4);
   }
 
+  /**
+   * @param string $bytes
+   * @return string
+   */
   private function decode_ip($bytes) {
     $length = (strlen($bytes) == 16) ? 4 : 16;
     return $this->_dtr_ntop($this->_bytes_extract($bytes, 12, $length));
   }
 
+  #endregion
+
+  #region Internal =============================================================
+
+  /**
+   * @throws NutException
+   */
   private function validate_expiration() {
     if ($this->is_timeout($this->nut_raw['time'])) {
       $this->expired = TRUE;
@@ -230,6 +301,9 @@ class Nut extends Common {
     $this->expired = FALSE;
   }
 
+  /**
+   * @throws NutException
+   */
   private function load() {
     $params = $this->wrapper->load();
     if (empty($params)) {
@@ -286,6 +360,10 @@ class Nut extends Common {
     throw new \Exception('Please provide a 4 or 16 byte string');
   }
 
+  /**
+   * @param int $count
+   * @return string
+   */
   private function random_bytes($count) {
     static $random_state, $bytes, $has_openssl;
     $missing_bytes = $count - strlen($bytes);
@@ -339,5 +417,7 @@ class Nut extends Common {
     $bytes = substr($bytes, $count);
     return $output;
   }
+
+  #endregion
 
 }

@@ -46,7 +46,13 @@ abstract class SQRL extends Common {
   // @var Message $message
   static private $message;
 
-  public function __construct($fetch, $cookie_expected = FALSE) {
+  /**
+   * @param bool $fetch
+   * @param bool $cookie_expected
+   * @throws NutException
+   * @throws \Exception
+   */
+  final public function __construct($fetch, $cookie_expected = FALSE) {
     $this->base_url = strtolower($this->build_base_url());
     $this->scheme = $this->use_secure_connection() ? 'sqrl' : 'qrl';
     $this->nut = new Nut($this);
@@ -59,16 +65,6 @@ abstract class SQRL extends Common {
   }
 
   /**
-   * @return string
-   */
-  public function toDebug() {
-    return json_encode(array(
-      'nut_ip_address' => $this->nut_ip_address,
-      'nut' => empty($this->nut) ? 'null' : $this->nut->toDebug(),
-    ));
-  }
-
-  /**
    * @return \GMJH\SQRL\Message
    */
   public static function get_message() {
@@ -78,29 +74,76 @@ abstract class SQRL extends Common {
     return self::$message;
   }
 
+  /**
+   * @return string
+   */
   abstract protected function build_base_url();
+
+  /**
+   * @return bool
+   */
   abstract public function is_secure_connection_available();
+
+  /**
+   * @param string $data
+   * @param bool $is_cookie
+   * @return string
+   */
   abstract public function encrypt($data, $is_cookie);
+
+  /**
+   * @param string $data
+   * @param bool $is_cookie
+   * @return string
+   */
   abstract public function decrypt($data, $is_cookie);
+
+  /**
+   * @param array $params
+   */
   abstract public function save($params);
+
+  /**
+   * @return array
+   */
   abstract public function load();
+
+  /**
+   * @param Account $account
+   */
   abstract public function authenticate($account);
+
+  /**
+   * @return bool
+   */
   abstract protected function authenticated();
 
   #region Main Final ===========================================================
 
+  /**
+   * @return bool
+   */
   final public function is_valid() {
     return isset($this->nut) ? $this->nut->is_valid() : FALSE;
   }
 
+  /**
+   * @return bool
+   */
   final public function is_expired() {
     return isset($this->nut) ? $this->nut->is_expired() : FALSE;
   }
 
+  /**
+   * @return string
+   */
   final public function get_error_message() {
     return isset($this->nut) ? $this->nut->get_error_message() : '';
   }
 
+  /**
+   * @return bool
+   */
   final public function is_authenticated() {
     if ($this->authenticated()) {
       $this->del_cookie();
@@ -109,10 +152,20 @@ abstract class SQRL extends Common {
     return FALSE;
   }
 
+  /**
+   * @return string
+   */
   final public function get_base_url() {
     return $this->base_url;
   }
 
+  /**
+   * @param string $path
+   * @param bool $include_nut
+   * @param bool $include_base_path
+   * @param bool $requires_leading_slash
+   * @return string
+   */
   final public function get_path($path, $include_nut = TRUE, $include_base_path = TRUE, $requires_leading_slash = TRUE) {
     $prefix = $include_base_path ? $this->get_base_path() : '/';
     if (!$requires_leading_slash) {
@@ -130,6 +183,9 @@ abstract class SQRL extends Common {
     return $prefix . $this::PATH_PREFIX . $path . $suffix;
   }
 
+  /**
+   * @return string
+   */
   final public function get_nut_url() {
     if (empty($this->url)) {
       $base_url = $this->base_url;
@@ -145,35 +201,60 @@ abstract class SQRL extends Common {
     return $this->url;
   }
 
+  /**
+   *
+   */
   final public function del_cookie() {
     setcookie('sqrl', '', $this->get_request_time() - 3600, $this->get_base_path(), $this->get_domain());
     unset($_COOKIE['sqrl']);
   }
 
+  /**
+   * @return string
+   */
   final public function get_nut() {
     return $this->nut->get_nut();
   }
 
+  /**
+   * @return string
+   */
   final public function get_nut_ip_address() {
     return $this->nut_ip_address;
   }
 
+  /**
+   * @param string $nut_ip_address
+   */
   final public function set_nut_ip_address($nut_ip_address) {
     $this->nut_ip_address = $nut_ip_address;
   }
 
+  /**
+   * @return string
+   */
   final public function get_operation() {
     return $this->operation;
   }
 
+  /**
+   * @param string $operation
+   */
   final public function set_operation($operation) {
     $this->operation = $operation;
   }
 
+  /**
+   * @param string $key
+   * @return mixed
+   */
   final public function get_operation_param($key) {
     return $this->params[$key];
   }
 
+  /**
+   * @return array
+   */
   final public function get_operation_params() {
     return array(
       'op' => $this->get_operation(),
@@ -182,20 +263,34 @@ abstract class SQRL extends Common {
     );
   }
 
+  /**
+   * @param string $key
+   * @param mixed $value
+   */
   final public function set_operation_param($key, $value) {
     $this->params[$key] = $value;
   }
 
+  /**
+   * @param array $values
+   */
   final public function set_operation_params($values) {
     foreach ($values as $key => $value) {
       $this->set_operation_param($key, $value);
     }
   }
 
+  /**
+   * @return string
+   */
   final public function get_icon() {
     return $this->render_image('data:image/png;base64,' . base64_encode(file_get_contents(__DIR__ . '/includes/icon.png')));
   }
 
+  /**
+   * @param string $src
+   * @return string
+   */
   private function render_image($src) {
     $size = $this->get_qr_size();
     return '<img src="' . $src . '" alt="SQRL" title="SQRL" height="' . $size . '" width="' . $size . '">';
@@ -205,10 +300,16 @@ abstract class SQRL extends Common {
 
   #region Main (potential overwrite) ===========================================
 
+  /**
+   * @return bool
+   */
   public function use_secure_connection() {
     return $this->is_secure_connection_available();
   }
 
+  /**
+   * @return int
+   */
   public function get_connection_port() {
     return $this->is_secure_connection_available() ? 443 : 80;
   }
@@ -217,28 +318,46 @@ abstract class SQRL extends Common {
    * return number of microseconds since last unix timestamp change,
    * scaled  by 10 modulo 65536, see Apache Module mod_unique_id for
    * justification that this is adequately request unique.
+   *
+   * @return int
    */
   public function counter() {
     list($usec, $sec) = explode(" ", microtime());
     return (intval($usec * 100000)) % 65536;
   }
 
+  /**
+   * @return bool
+   */
   public function is_page_cached() {
     return FALSE;
   }
 
+  /**
+   * @return int
+   */
   public function get_qr_size() {
     return $this::QR_SIZE;
   }
 
+  /**
+   * @param bool $initial
+   * @return int
+   */
   public function get_poll_interval($initial = FALSE) {
     return $initial ? $this::POLL_INTERVAL_INITIAL : $this::POLL_INTERVAL;
   }
 
+  /**
+   * @return string
+   */
   public function get_authenticated_destination() {
     return $this->get_path($this::PATH_USER, FALSE);
   }
 
+  /**
+   *
+   */
   public function poll() {
     $result = array();
     $result['msg'] = 'Hallo';
@@ -259,6 +378,12 @@ abstract class SQRL extends Common {
     echo json_encode($result);
   }
 
+  /**
+   * @param string $operation
+   * @param bool $force
+   * @param bool $json
+   * @return string
+   */
   public function get_markup($operation, $force = FALSE, $json = FALSE) {
     $this->set_operation($operation);
 
@@ -302,6 +427,9 @@ abstract class SQRL extends Common {
     }
   }
 
+  /**
+   *
+   */
   public function get_qr_image() {
     if (!$this->is_valid()) {
       header('Status: 404 Not Found');
@@ -315,15 +443,31 @@ abstract class SQRL extends Common {
     \QRcode::png($string, FALSE, QR_ECLEVEL_L, 3, 4, FALSE);
   }
 
+  /**
+   * @return string
+   */
+  public function toDebug() {
+    return json_encode(array(
+      'nut_ip_address' => $this->nut_ip_address,
+      'nut' => empty($this->nut) ? 'null' : $this->nut->toDebug(),
+    ));
+  }
+
   #endregion
 
   #region Internal =============================================================
 
+  /**
+   * @return string
+   */
   public function get_domain() {
     $domain_length = strpos($this->base_url, '/');
     return $domain_length ? substr($this->base_url, 0, $domain_length) : $this->base_url;
   }
 
+  /**
+   * @return string
+   */
   public function get_base_path() {
     $domain_length = strpos($this->base_url, '/');
     return $domain_length ? substr($this->base_url, $domain_length) . '/' : '/';
