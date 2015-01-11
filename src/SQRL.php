@@ -90,11 +90,15 @@ abstract class SQRL extends Common {
   #region Main Final ===========================================================
 
   final public function is_valid() {
-    return $this->nut->is_valid();
+    return isset($this->nut) ? $this->nut->is_valid() : FALSE;
+  }
+
+  final public function is_expired() {
+    return isset($this->nut) ? $this->nut->is_expired() : FALSE;
   }
 
   final public function get_error_message() {
-    return $this->nut->get_error_message();
+    return isset($this->nut) ? $this->nut->get_error_message() : '';
   }
 
   final public function is_authenticated() {

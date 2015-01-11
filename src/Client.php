@@ -34,6 +34,7 @@ abstract class Client extends Common {
   const FLAG_ACCOUNT_CREATION_ALLOWED = 0x20;
   const FLAG_COMMAND_FAILURE = 0x40;
   const FLAG_FAILURE = 0x80;
+  const FLAG_STALE_NUT = 0x100;
 
   // @var SQRL $sqrl
   protected $sqrl;
@@ -192,6 +193,9 @@ abstract class Client extends Common {
 
   private function validate_nut() {
     if (!$this->sqrl->is_valid()) {
+      if ($this->sqrl->is_expired()) {
+        $this->tif |= self::FLAG_STALE_NUT;
+      }
       throw new ClientException($this->sqrl->get_error_message());
     }
 

@@ -50,6 +50,7 @@ class Nut extends Common {
   protected $nut_raw;
 
   private $status = self::STATUS_INITED;
+  private $expired;
 
   private $error_code = 0;
   private $error_message = '';
@@ -86,6 +87,10 @@ class Nut extends Common {
 
   final public function is_valid() {
     return ($this->status != self::STATUS_INVALID);
+  }
+
+  final public function is_expired() {
+    return isset($this->expired) ? $this->expired : FALSE;
   }
 
   final public function get_error_message() {
@@ -218,9 +223,11 @@ class Nut extends Common {
 
   private function validate_expiration() {
     if ($this->is_timeout($this->nut_raw['time'])) {
+      $this->expired = TRUE;
       $this->wrapper->del_cookie();
       throw new NutException('Nut time validity expired');
     }
+    $this->expired = FALSE;
   }
 
   private function load() {
