@@ -5,6 +5,8 @@
 
 namespace GMJH\SQRL\Sample;
 
+use GMJH\SQRL\ClientException;
+
 /**
  * An override class for Sample SQRL account
  *
@@ -19,6 +21,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_setkey_link($client) {
     return FALSE;
@@ -27,6 +30,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_setkey($client) {
     return FALSE;
@@ -35,6 +39,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_setlock($client) {
     return FALSE;
@@ -43,6 +48,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_disable($client) {
     return FALSE;
@@ -51,6 +57,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_enable($client) {
     return FALSE;
@@ -59,6 +66,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_delete($client) {
     return FALSE;
@@ -67,6 +75,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_login($client) {
     return TRUE;
@@ -75,6 +84,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_logme($client) {
     return FALSE;
@@ -83,6 +93,7 @@ class Account extends \GMJH\SQRL\Account {
   /**
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   public function command_logoff($client) {
     return FALSE;

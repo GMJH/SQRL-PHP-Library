@@ -6,11 +6,18 @@ function sqrl_poll() {
       if (result.location !== undefined) {
         window.location = result.location;
       }
-      else if (!result.stopPolling) {
-        setTimeout(function () {sqrl_poll()}, sqrl.pollInterval);
-      }
       else {
-        document.querySelector('.sqrl').outerHTML = '<!-- SQRL removed, NUT no longer valid -->';
+        var msg = '';
+        if (result.msg !== undefined) {
+          msg = result.msg;
+        }
+        if (!result.stopPolling) {
+          document.querySelector('.sqrl').innerHTML = document.querySelector('.sqrl').innerHTML + msg;
+          setTimeout(function () {sqrl_poll()}, sqrl.pollInterval);
+        }
+        else {
+          document.querySelector('.sqrl').outerHTML = '<!-- SQRL removed, NUT no longer valid -->' + msg;
+        }
       }
     });
   }

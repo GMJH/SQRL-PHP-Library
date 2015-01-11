@@ -318,9 +318,13 @@ class Nut extends Common {
     if (!isset($params['params']) || !is_array($params['params'])) {
       throw new NutException('Wrong params received from implementing framework');
     }
+    if (!isset($params['messages to browser']) || !is_array($params['messages to browser'])) {
+      throw new NutException('Wrong params received from implementing framework');
+    }
     $this->wrapper->set_operation($params['op']);
     $this->wrapper->set_nut_ip_address($params['ip']);
     $this->wrapper->set_operation_params($params['params']);
+    $this->wrapper->add_messages_to_browser($params['messages to browser']);
   }
 
   /**

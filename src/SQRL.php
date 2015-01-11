@@ -40,6 +40,7 @@ abstract class SQRL extends Common {
   private $base_url;
   private $url;
   private $scheme;
+  private $messages_to_browser = array();
 
   // @var NutURL $nut
   private $nut;
@@ -260,6 +261,7 @@ abstract class SQRL extends Common {
       'op' => $this->get_operation(),
       'ip' => $this->get_ip_address(),
       'params' => $this->params,
+      'messages to browser' => $this->messages_to_browser,
     );
   }
 
@@ -360,8 +362,21 @@ abstract class SQRL extends Common {
    */
   public function poll() {
     $result = array();
-    $result['msg'] = 'Hallo';
-    if (!$this->is_valid()) {
+
+    // Check for messages and status from client.
+    $message = '';
+    $stop_polling = FALSE;
+    foreach ($this->messages_to_browser as $msg) {
+      $message .= '<div class="sqrl-message sqrl-message-' . $msg['type'] . '">' . $msg['message'] . '</div>';
+      if (!empty($message['stop polling'])) {
+        $stop_polling = TRUE;
+      }
+    }
+    if (!empty($message)) {
+      $result['msg'] = $message;
+    }
+
+    if ($stop_polling || !$this->is_valid()) {
       $result['stopPolling'] = TRUE;
     }
     else if ($this->is_authenticated()) {
@@ -472,6 +487,28 @@ abstract class SQRL extends Common {
     $domain_length = strpos($this->base_url, '/');
     return $domain_length ? substr($this->base_url, $domain_length) . '/' : '/';
   }
+
+  /**
+   * @param string $type
+   * @param string $message
+   * @param bool $stop_polling
+   */
+  public function add_message_to_browser($type, $message, $stop_polling) {
+    $this->messages_to_browser[] = array(
+      'type' => $type,
+      'message' => $message,
+      'stop polling' => $stop_polling,
+    );
+    $this->save($this->get_operation_params());
+  }
+
+  /**
+   * @param array $messages
+   */
+  public function add_messages_to_browser($messages) {
+    $this->messages_to_browser = $messages;
+  }
+
   #endregion
 
 }

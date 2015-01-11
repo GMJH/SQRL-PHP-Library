@@ -147,6 +147,7 @@ abstract class Client extends Common {
 
   /**
    * @return bool
+   * @throws ClientException
    */
   abstract protected function command_create();
 
@@ -411,13 +412,30 @@ abstract class Client extends Common {
             $this->sqrl->authenticate($this->account);
           }
         }
+        else {
+          $this->command_not_implemented($command);
+        }
       }
     }
     catch (ClientException $e) {
       $this->tif |= self::FLAG_COMMAND_FAILURE;
+
+      // Message to be returned to the client.
       $this->message = $e->getMessage();
+
+      // Message to be displayed in the browser.
+      $this->sqrl->add_message_to_browser('error', $this->message, TRUE);
+
       throw $e;
     }
+  }
+
+  /**
+   * @param $command
+   * @throws ClientException
+   */
+  private function command_not_implemented($command) {
+    throw new ClientException('The command ' . $command . ' is not available and caused your request to fail.');
   }
 
   /**

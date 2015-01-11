@@ -80,6 +80,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_setkey_link($client);
 
@@ -97,6 +98,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract function command_setkey($client);
 
@@ -110,6 +112,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_setlock($client);
 
@@ -123,6 +126,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_disable($client);
 
@@ -134,6 +138,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_enable($client);
 
@@ -147,6 +152,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_delete($client);
 
@@ -158,6 +164,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_login($client);
 
@@ -174,6 +181,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_logme($client);
 
@@ -188,6 +196,7 @@ abstract class Account {
    *
    * @param Client $client
    * @return bool
+   * @throws ClientException
    */
   abstract public function command_logoff($client);
 
