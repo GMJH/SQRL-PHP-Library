@@ -235,6 +235,10 @@ abstract class SQRL extends Common {
     return $initial ? $this::POLL_INTERVAL_INITIAL : $this::POLL_INTERVAL;
   }
 
+  public function get_authenticated_destination() {
+    return $this->get_path($this::PATH_USER, FALSE);
+  }
+
   public function poll() {
     $result = array();
     $result['msg'] = 'Hallo';
@@ -242,7 +246,7 @@ abstract class SQRL extends Common {
       $result['stopPolling'] = TRUE;
     }
     else if ($this->is_authenticated()) {
-      $destination = $this->get_path($this::PATH_USER, FALSE);
+      $destination = $this->get_authenticated_destination();
       if ($destination) {
         $result['location'] = $destination;
       }
