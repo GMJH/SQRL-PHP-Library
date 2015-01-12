@@ -441,11 +441,13 @@ abstract class Client extends Common {
     }
 
     if ($this->sqrl->is_auto_create_account()) {
-      $this->sqrl->create_new_account();
+      $this->sqrl->create_new_account($this);
     }
     else {
-      $this->sqrl->ask_to_create_new_account();
+      $this->sqrl->ask_to_create_new_account($this);
     }
+    $this->tif |= self::FLAG_IDK_MATCH;
+    $this->tif |= self::FLAG_ACCOUNT_ENABLED;
 
     return FALSE;
   }

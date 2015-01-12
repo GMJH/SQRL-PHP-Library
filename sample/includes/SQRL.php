@@ -119,7 +119,11 @@ class SQRL extends \GMJH\SQRL\SQRL {
     return TRUE;
   }
 
-  public function create_new_account() {
+  /**
+   * @param Client $client
+   * @return bool
+   */
+  public function create_new_account($client) {
     return TRUE;
   }
 

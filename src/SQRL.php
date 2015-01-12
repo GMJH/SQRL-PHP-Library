@@ -121,9 +121,10 @@ abstract class SQRL extends Common {
   abstract protected function authenticated();
 
   /**
+   * @param Client $client
    * @return bool
    */
-  abstract public function create_new_account();
+  abstract public function create_new_account($client);
 
   #region Main Final ===========================================================
 
@@ -393,6 +394,10 @@ abstract class SQRL extends Common {
     if (!empty($message)) {
       $result['msg'] = $message;
     }
+    if (!$stop_polling) {
+      $this->messages_to_browser = array();
+      $this->save($this->get_operation_params());
+    }
 
     if ($stop_polling || !$this->is_valid()) {
       $result['stopPolling'] = TRUE;
@@ -507,10 +512,11 @@ abstract class SQRL extends Common {
   }
 
   /**
-   *
+   * @param Client $client
    */
-  public function ask_to_create_new_account() {
+  public function ask_to_create_new_account($client) {
     $this->set_operation_param('validated nut', $this->get_nut());
+    $this->set_operation_param('client', $client);
     $this->add_message_to_browser('destination', $this->get_path($this::PATH_CREATE), TRUE);
   }
 
