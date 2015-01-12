@@ -102,7 +102,9 @@ abstract class Client extends Common {
    * @param string $value
    */
   public function set_response($key, $value) {
-    $this->response[$key] = $value;
+    if (!empty($value)) {
+      $this->response[$key] = $value;
+    }
   }
 
   /**

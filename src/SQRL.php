@@ -387,7 +387,7 @@ abstract class SQRL extends Common {
       else {
         $message .= '<div class="sqrl-message sqrl-message-' . $msg['type'] . '">' . $msg['message'] . '</div>';
       }
-      if (!empty($message['stop polling'])) {
+      if (!empty($msg['stop polling'])) {
         $stop_polling = TRUE;
       }
     }
