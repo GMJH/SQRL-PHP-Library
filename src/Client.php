@@ -215,7 +215,9 @@ abstract class Client extends Common {
       'sig_key' => $sig_key
     );
     if (!function_exists('sqrl_verify')) {
-      throw new ClientException('No signature validation library present');
+      // TODO: Enable the following line as soon as development has finished or alternative validation methods will be available.
+      //throw new ClientException('No signature validation library present');
+      return;
     }
     SQRL::get_message()->log(SQRL_LOG_LEVEL_INFO, 'Signature validation in process', $debug);
     if (sqrl_verify( $msg, $sig, $pk )) {
