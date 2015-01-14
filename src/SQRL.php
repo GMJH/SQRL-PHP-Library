@@ -257,7 +257,7 @@ abstract class SQRL extends Common {
    * @return mixed
    */
   final public function get_operation_param($key) {
-    return $this->params[$key];
+    return empty($this->params[$key]) ? FALSE : $this->params[$key];
   }
 
   /**
