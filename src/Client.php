@@ -90,6 +90,13 @@ abstract class Client extends Common {
   }
 
   /**
+   * @return SQRL
+   */
+  public function get_sqrl() {
+    return $this->sqrl;
+  }
+
+  /**
    * @param string $key
    * @return string
    */
@@ -146,6 +153,13 @@ abstract class Client extends Common {
    * @return Account
    */
   abstract protected function find_user_account($key);
+
+  /**
+   * @param string $key
+   * @param bool $just_active
+   * @return Account
+   */
+  abstract public function find_all_user_accounts($key, $just_active = TRUE);
 
   #endregion
 
