@@ -20,19 +20,11 @@ class Account extends \GMJH\SQRL\Account {
 
   /**
    * @param Client $client
+   * @param bool $additional
    * @return bool
    * @throws ClientException
    */
-  public function command_setkey_link($client) {
-    return FALSE;
-  }
-
-  /**
-   * @param Client $client
-   * @return bool
-   * @throws ClientException
-   */
-  public function command_setkey($client) {
+  public function command_setkey($client, $additional = FALSE) {
     return FALSE;
   }
 

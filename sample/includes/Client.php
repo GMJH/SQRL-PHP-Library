@@ -57,4 +57,21 @@ class Client extends \GMJH\SQRL\Client {
     return empty($uid) ? FALSE : new Account($uid);
   }
 
+  /**
+   * @param SQRL $sqrl
+   * @return Account
+   */
+  protected function get_link_account($sqrl) {
+    return new Account(1);
+  }
+
+  /**
+   * @param string $key
+   * @param bool $just_active
+   * @return Account
+   */
+  public function find_all_user_accounts($key, $just_active = TRUE) {
+    return array();
+  }
+
 }

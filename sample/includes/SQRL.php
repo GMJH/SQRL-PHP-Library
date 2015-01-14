@@ -107,7 +107,7 @@ class SQRL extends \GMJH\SQRL\SQRL {
     if (file_exists($filename)) {
       $uid = file_get_contents($filename);
       unlink($filename);
-      return TRUE;
+      return $uid ? TRUE : FALSE;
     }
     return FALSE;
   }

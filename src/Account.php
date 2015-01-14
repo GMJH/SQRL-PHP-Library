@@ -75,16 +75,6 @@ abstract class Account {
   #region Abstract methods for implementation ==================================
 
   /**
-   * Callback which is called by sqrl_client() if we get a setkey command from
-   * the SQRL client in the context of a link operation.
-   *
-   * @param Client $client
-   * @return bool
-   * @throws ClientException
-   */
-  abstract public function command_setkey_link($client);
-
-  /**
    * This verb requests the web server to establish—or update an existing—identity
    * association. The client must provide the user's current identity key (idk),
    * identity signature (ids), server unlock key (suk) and verify unlock key (vuk).
@@ -97,10 +87,11 @@ abstract class Account {
    * identity association.
    *
    * @param Client $client
+   * @param bool $additional
    * @return bool
    * @throws ClientException
    */
-  abstract function command_setkey($client);
+  abstract function command_setkey($client, $additional = FALSE);
 
   /**
    * This verb requests the web server to establish—or update the account's

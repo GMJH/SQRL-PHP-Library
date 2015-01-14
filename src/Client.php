@@ -149,6 +149,12 @@ abstract class Client extends Common {
   abstract protected function load();
 
   /**
+   * @param SQRL $sqrl
+   * @return Account
+   */
+  abstract protected function get_link_account($sqrl);
+
+  /**
    * @param string $key
    * @return Account
    */
@@ -410,21 +416,8 @@ abstract class Client extends Common {
    */
   private function commands_determine() {
     if ($this->sqrl->get_operation() == 'link') {
-      if (empty($this->client_vars['suk']) || empty($this->client_vars['vuk'])) {
-        // This is the initial request from the client and we respond such
-        // that there is no account yet. This forces the client to send the
-        // keys with the next request.
-        $commands = array();
-      }
-      else if ($this->account) {
-        // Trying to link a user account to a SQRL identity that's already
-        // linked to another account. This needs to fail.
-        // TODO: How to respond to the client without disclosing too much information?
-        $commands = array();
-      }
-      else {
-        $commands = array('setkey_link');
-      }
+      $commands = array('setkey_link');
+      // TODO: check with the new workflow, previously this was a 2-step-process.
     }
     else {
       $commands = explode('~', $this->client_vars['cmd']);
@@ -494,6 +487,15 @@ abstract class Client extends Common {
     $this->tif |= self::FLAG_ACCOUNT_ENABLED;
 
     return FALSE;
+  }
+
+  private function command_setkey_link() {
+    $account = $this->get_link_account($this->sqrl);
+    if ($account->command_setkey($this, TRUE)) {
+      $this->sqrl->authenticate($account);
+      $this->tif |= self::FLAG_IDK_MATCH;
+      $this->tif |= self::FLAG_ACCOUNT_ENABLED;
+    }
   }
 
   /**
