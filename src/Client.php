@@ -166,20 +166,19 @@ abstract class Client extends Common {
    * @throws ClientException
    */
   private function validate_signatures() {
-    $msg        = $this->validation_string;
-    // TODO: Check the signature/pub_key mapping.
+    $msg = $this->validation_string;
+    // Is the message present?
+    if (empty($msg)) {
+      throw new ClientException('Missing validation string');
+    }
     $required_signatures = array(
       'ids' => 'idk',
       // 'pids' => 'pidk',
       // 'urs' => 'purs',
     );
     foreach ($required_signatures as $sig_key => $pub_key) {
-      $sig        = $this->client_sigs[$sig_key];
-      $pk         = $this->client_vars[$pub_key];
-      // Is the message present?
-      if (empty($msg)) {
-        throw new ClientException('Missing validation string');
-      }
+      $sig = $this->client_sigs[$sig_key];
+      $pk  = $this->client_vars[$pub_key];
       // Is the signature present?
       if (empty($sig)) {
         throw new ClientException('Missing signature');
@@ -197,12 +196,16 @@ abstract class Client extends Common {
    * Validate a specific signature:-
    * Default support for php-ext-sqrl ed25519 library at:
    * https://github.com/ramriot/php-ext-sqrl/
-   * 
-   * @param $message:   plain text of signed message
-   * @param $sig:       base64url-encoded signature
-   * @param $pk:        base64url-encoded Public Key
-   * @param $sig_key:   string value of signature name
-   * @return Boolean:   1=Valid 0=Invalid
+   *
+   * @param string $msg
+   *  plain text of signed message
+   * @param string $sig
+   *  base64url-encoded signature
+   * @param string $pk
+   *  base64url-encoded Public Key
+   * @param string $sig_key
+   *  string value of signature name
+   * @throws ClientException
    */
   private function validate_signature($msg, $sig, $pk, $sig_key = 'empty') {
     $debug = array(
@@ -211,20 +214,21 @@ abstract class Client extends Common {
       'pk' => $pk,
       'sig_key' => $sig_key
     );
-    if(!function_exists('sqrl_verify'))    {
+    if (!function_exists('sqrl_verify')) {
       throw new ClientException('No signature validation library present');
     }
     SQRL::get_message()->log(SQRL_LOG_LEVEL_INFO, 'Signature validation in process', $debug);
-    if (sqrl_verify( $msg, $sig, $pk ))    {
+    if (sqrl_verify( $msg, $sig, $pk )) {
       //Valid signature
       SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature valid', $debug);
-    }    else    {
+    }
+    else {
       //Invalid signature
       SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature invalid', $debug);
       throw new ClientException('Signature validation failed: ' . $sig_key);
     }
   }
-  
+
   /**
    * @throws ClientException
    */
@@ -311,10 +315,9 @@ abstract class Client extends Common {
    */
   private function process() {
     $this->client_sigs = array(
-      //'ids' => $this->base64_decode($this->get_post_value('ids')),
       'ids' => $this->get_post_value('ids'),
-      // 'pids' => $this->base64_decode($this->get_post_value('pids')),
-      // 'urs' => $this->base64_decode($this->get_post_value('urs')),
+      // 'pids' => $this->get_post_value('pids'),
+      // 'urs' => $this->get_post_value('urs'),
     );
     $this->client_header = array(
       'host' => $this->get_server_value('HTTP_HOST'),
