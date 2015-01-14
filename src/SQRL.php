@@ -30,6 +30,7 @@ abstract class SQRL extends Common {
   const PATH_VIEW     = 'view/';
   const PATH_USER     = 'action';
   const PATH_CREATE   = 'create';
+  const PATH_SELECT   = 'select';
   const PATH_QR_IMAGE = 'img';
   const QR_SIZE       = 160;
   const POLL_INTERVAL_INITIAL = 5;
@@ -518,6 +519,16 @@ abstract class SQRL extends Common {
     $this->set_operation_param('validated nut', $this->get_nut());
     $this->set_operation_param('client', $client);
     $this->add_message_to_browser('destination', $this->get_path($this::PATH_CREATE), TRUE);
+  }
+
+  /**
+   * @param Client $client
+   */
+  public function ask_to_select_account($client, $existing_accounts) {
+    $this->set_operation_param('validated nut', $this->get_nut());
+    $this->set_operation_param('client', $client);
+    $this->set_operation_param('existing accounts', $existing_accounts);
+    $this->add_message_to_browser('destination', $this->get_path($this::PATH_SELECT), TRUE);
   }
 
   /**
