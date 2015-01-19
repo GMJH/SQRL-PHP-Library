@@ -58,6 +58,7 @@ abstract class Client extends Common {
 
   /**
    * @param SQRL $sqrl
+   * @param Crypto $crypto
    */
   final public function __construct($sqrl, $crypto = NULL) {
     $this->sqrl = $sqrl;
