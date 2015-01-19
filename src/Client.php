@@ -38,6 +38,8 @@ abstract class Client extends Common {
 
   // @var SQRL $sqrl
   protected $sqrl;
+  // @var Crypto $crypto
+  protected $crypto;
   // @var Account $account
   protected $account;
 
@@ -57,8 +59,9 @@ abstract class Client extends Common {
   /**
    * @param SQRL $sqrl
    */
-  final public function __construct($sqrl) {
+  final public function __construct($sqrl, $crypto = NULL) {
     $this->sqrl = $sqrl;
+    $this->crypto = isset($crypto) ? $crypto : new Ed25519();
     $this->get_post_value('dummy');
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
