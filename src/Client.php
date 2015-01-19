@@ -59,6 +59,7 @@ abstract class Client extends Common {
    */
   final public function __construct($sqrl) {
     $this->sqrl = $sqrl;
+    $this->get_post_value('dummy');
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request processed', array('client class' => $this,));
@@ -130,6 +131,11 @@ abstract class Client extends Common {
       'http_code' => $this->http_code,
       'message' => $this->message,
       'sqrl' => $this->sqrl->toDebug(),
+      'client' => $this->client_vars,
+      'server' => $this->server_vars,
+      'signatures' => $this->client_sigs,
+      'header' => $this->client_header,
+
     ));
   }
 
@@ -462,6 +468,11 @@ abstract class Client extends Common {
     }
   }
 
+  private function command_query() {
+    //$this->tif |= self::FLAG_ACCOUNT_ENABLED;
+    return FALSE;
+  }
+
   /**
    * This command is called if the client wants to login but there is no
    * matching user account available yet. This should now start the process to
@@ -515,7 +526,7 @@ abstract class Client extends Common {
       'ver' => '1',
       'nut' => $this->sqrl->get_nut(),
       'tif' => $this->tif,
-      #'qry' => $this->nut->get_path('client/follow-up', $this->nut->get_public_nut(Nut::SELECT_URL)),
+      'qry' => '/sqrl',//$this->sqrl->get_path($this->sqrl->PATH_CLIENT, FALSE),
       'sfn' => $this->site_name(),
     );
     $response += $this->response;
@@ -538,8 +549,8 @@ abstract class Client extends Common {
 
     $headers = array(
       'charset' => 'utf-8',
-      'content-type' => 'text/plain',
-      'http_code', $this->http_code,
+      'content-type' => 'text/plain', //'application/www-url-encoded',
+      'http_code' => $this->http_code,
     );
     foreach ($headers as $key => $value) {
       header($key . ': ' . $value);

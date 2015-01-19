@@ -98,6 +98,12 @@ abstract class Common {
    * @return string
    */
   public function get_post_value($key) {
+    if (empty($_POST) && !empty($GLOBALS['HTTP_RAW_POST_DATA'])) {
+      foreach (explode('&', $GLOBALS['HTTP_RAW_POST_DATA']) as $entry) {
+        list($key, $value) = explode('=', $entry);
+        $_POST[urldecode($key)] = urldecode($value);
+      }
+    }
     return isset($_POST[$key]) ? $_POST[$key] : '';
   }
 
