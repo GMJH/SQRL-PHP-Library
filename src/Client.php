@@ -60,9 +60,9 @@ abstract class Client extends Common {
    * @param SQRL $sqrl
    * @param Crypto $crypto
    */
-  final public function __construct($sqrl, $crypto = NULL) {
+  final public function __construct($sqrl, Crypto $crypto = NULL) {
     $this->sqrl = $sqrl;
-    $this->crypto = isset($crypto) ? $crypto : new Ed25519();
+    $this->crypto = new CryptoSelect($crypto);
     $this->get_post_value('dummy');
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
@@ -73,6 +73,7 @@ abstract class Client extends Common {
     }
     $this->respond();
   }
+
 
   #region Main (potential overwrite) ===========================================
 
@@ -238,26 +239,30 @@ abstract class Client extends Common {
    * @throws ClientException
    */
   private function validate_signature($msg, $sig, $pk, $sig_key = 'empty') {
-    $debug = array(
+    $box = array(
       'message' => $msg,
       'signature' => $sig,
-      'pk' => $pk,
+      'publickey' => $pk,
       'sig_key' => $sig_key
     );
-    if (!function_exists('sqrl_verify')) {
-      // TODO: Enable the following line as soon as development has finished or alternative validation methods will be available.
-      //throw new ClientException('No signature validation library present');
+    SQRL::get_message()->log(SQRL_LOG_LEVEL_INFO, 'Signature validation in process', $box);
+    /*
+    if (!$this->crypto->supported()) {
+      throw new ClientException(get_class($this->crypto) . ' validation library extension not supported see README');
       return;
     }
-    SQRL::get_message()->log(SQRL_LOG_LEVEL_INFO, 'Signature validation in process', $debug);
-    if (sqrl_verify( $msg, $sig, $pk )) {
-      //Valid signature
-      SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature valid', $debug);
+    */
+    //Process validation parameters as needed by extension
+    $this->crypto->process($box);
+
+    if ($this->crypto->validate()) {
+      //Valid signature sqrl_verify( $msg, $sig, $pk )
+      SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature valid', $box);
     }
     else {
       //Invalid signature
-      SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature invalid', $debug);
-      throw new ClientException('Signature validation failed: ' . $sig_key);
+      SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Signature invalid', $box);
+      throw new ClientException('Signature validation failed: key=>' . $sig_key);
     }
   }
 
