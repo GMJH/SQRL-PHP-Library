@@ -65,5 +65,22 @@ class CryptoSelect {
         return $class;
       }
     }
+    SQRL::get_message()->msg(SQRL_LOG_LEVEL_ERROR, "No cryptographic library supported.");
+  }
+  
+  function options()  {
+    $options = array();
+    //loop through list in order and return instantiated class of first supported.
+    foreach($this->cryptoList() as $className) {
+      //instantiate crypto (Does namespace need to be added?)
+      $fullname = __NAMESPACE__ . '\\' . $className;
+      $class = new $fullname;
+      $options[$className]  = array(
+        'supported'   => $class->supported(),
+        'description' => $class->description(),
+        'classname'   => $fullname,
+      );
+    }
+    return $options;
   }
 }

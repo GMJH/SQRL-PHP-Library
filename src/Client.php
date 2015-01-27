@@ -63,6 +63,7 @@ abstract class Client extends Common {
   final public function __construct($sqrl, Crypto $crypto = NULL) {
     $this->sqrl = $sqrl;
     $this->crypto = new CryptoSelect($crypto);
+    SQRL::get_message()->log(SQRL_LOG_LEVEL_INFO, 'Crypto: '.get_class($this->crypto), $crypto);
     $this->get_post_value('dummy');
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Incoming client request');
     $this->process();
