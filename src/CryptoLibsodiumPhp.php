@@ -55,7 +55,7 @@ class CryptoLibsodiumPhp extends Crypto {
     }
     
     public function validate() {
-        $msg_orig = crypto_sign_open($this->signed_msg, $this->publickey);
+        $msg_orig = crypto_sign_open($this->signed_msg, $this->public_key);
         return ($msg_orig === FALSE)?FALSE:TRUE;
     }
 
