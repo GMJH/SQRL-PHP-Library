@@ -317,7 +317,7 @@ abstract class Client extends Common {
     // Check if this client request is a response to a previous one and validate
     $value = $this->load();
     if ($value) {
-      if ($value != $this->encode_response($this->server_vars)) {
+      if ($value != $this->encode_response($this->server_vars, TRUE)) {
         // TODO: Validation currently fails as the order from the client is different from what we sent out.
         // throw new ClientException('Data from client does not match our previous response');
       }
@@ -443,6 +443,9 @@ abstract class Client extends Common {
   private function commands_execute($commands) {
     try {
       foreach ($commands as $command) {
+        if ($command == 'ident') {
+          $command = 'login';
+        }
         $method = 'command_' . $command;
         if ($this->account && method_exists($this->account, $method)) {
           if ($this->account->{$method}($this)) {
@@ -525,12 +528,13 @@ abstract class Client extends Common {
    *
    */
   private function respond() {
+    $grc = ($_SERVER['HTTP_USER_AGENT'] == 'GRC SQRL Client');
     // Build the response body.
     $response = array(
       'ver' => '1',
       'nut' => $this->sqrl->get_nut(),
       'tif' => $this->tif,
-      'qry' => '/sqrl',//$this->sqrl->get_path($this->sqrl->PATH_CLIENT, FALSE),
+      'qry' => $this->sqrl->get_path($this->sqrl->PATH_CLIENT, $grc),//'/sqrl?nut=' . $this->sqrl->get_nut(),//
       'sfn' => $this->site_name(),
     );
     $response += $this->response;
@@ -540,13 +544,15 @@ abstract class Client extends Common {
       $response['lnk'] = $this->sqrl->get_path('action');
     }
 
-    $msg = $this->message;
-    foreach ($this->fields as $type => $label) {
-      $msg .= '~' . $type . ':' . $label;
+    if (!$grc) {
+      $msg = $this->message;
+      foreach ($this->fields as $type => $label) {
+        $msg .= '~' . $type . ':' . $label;
+      }
+      $response['ask'] = $msg;
     }
-    $response['ask'] = $msg;
 
-    $base64 = $this->encode_response($response);
+    $base64 = $this->encode_response($response, !$grc);
 
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Server response', array('values' => $response, 'base64' => $base64,));
     $this->save($base64);
@@ -559,7 +565,12 @@ abstract class Client extends Common {
     foreach ($headers as $key => $value) {
       header($key . ': ' . $value);
     }
-    print('server=' . $base64 . self::CRLF);
+    if ($grc) {
+      print($base64 . self::CRLF);
+    }
+    else {
+      print('server=' . $base64 . self::CRLF);
+    }
     exit;
   }
 
@@ -567,12 +578,17 @@ abstract class Client extends Common {
    * @param array $values
    * @return string
    */
-  private function encode_response($values) {
+  private function encode_response($values, $encode) {
     $output = array();
     foreach ($values as $key => $value) {
       $output[] = $key . '=' . $value;
     }
-    return $this->base64_encode(implode(self::CRLF, $output) . self::CRLF);
+    if ($encode) {
+      return $this->base64_encode(implode(self::CRLF, $output) . self::CRLF);
+    }
+    else {
+      return implode(self::CRLF, $output);
+    }
   }
 
   /**
