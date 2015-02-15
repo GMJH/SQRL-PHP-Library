@@ -552,7 +552,7 @@ abstract class Client extends Common {
       $response['ask'] = $msg;
     }
 
-    $base64 = $this->encode_response($response, !$grc);
+    $base64 = $this->encode_response($response, TRUE);
 
     SQRL::get_message()->log(SQRL_LOG_LEVEL_DEBUG, 'Server response', array('values' => $response, 'base64' => $base64,));
     $this->save($base64);
