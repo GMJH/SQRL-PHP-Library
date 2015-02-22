@@ -193,6 +193,14 @@ abstract class SQRL extends Common {
   }
 
   /**
+   * @param bool $grc
+   * @return string
+   */
+  final public function get_client_path($grc) {
+    return $this->get_path($this::PATH_CLIENT, $grc);
+  }
+
+  /**
    * @return string
    */
   final public function get_nut_url() {

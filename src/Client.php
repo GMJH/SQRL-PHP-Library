@@ -29,7 +29,7 @@ abstract class Client extends Common {
   const FLAG_IDK_MATCH = 0x01;
   const FLAG_PIDK_MATCH = 0x02;
   const FLAG_IP_MATCH = 0x04;
-  const FLAG_ACCOUNT_ENABLED = 0x08;
+  const FLAG_ACCOUNT_DISABLED = 0x08;
   const FLAG_ACCOUNT_LOGGED_IN = 0x10;
   const FLAG_ACCOUNT_CREATION_ALLOWED = 0x20;
   const FLAG_COMMAND_FAILURE = 0x40;
@@ -411,8 +411,8 @@ abstract class Client extends Common {
       return;
     }
 
-    if ($account->enabled()) {
-      $this->tif |= self::FLAG_ACCOUNT_ENABLED;
+    if (!$account->enabled()) {
+      $this->tif |= self::FLAG_ACCOUNT_DISABLED;
     }
     if ($account->logged_in()) {
       $this->tif |= self::FLAG_ACCOUNT_LOGGED_IN;
@@ -476,7 +476,6 @@ abstract class Client extends Common {
   }
 
   private function command_query() {
-    //$this->tif |= self::FLAG_ACCOUNT_ENABLED;
     return FALSE;
   }
 
@@ -502,7 +501,6 @@ abstract class Client extends Common {
       $this->sqrl->ask_to_create_new_account($this);
     }
     $this->tif |= self::FLAG_IDK_MATCH;
-    $this->tif |= self::FLAG_ACCOUNT_ENABLED;
 
     return FALSE;
   }
@@ -512,7 +510,6 @@ abstract class Client extends Common {
     if ($account->command_setkey($this, TRUE)) {
       $this->sqrl->authenticate($account);
       $this->tif |= self::FLAG_IDK_MATCH;
-      $this->tif |= self::FLAG_ACCOUNT_ENABLED;
     }
   }
 
@@ -534,15 +531,10 @@ abstract class Client extends Common {
       'ver' => '1',
       'nut' => $this->sqrl->get_nut(),
       'tif' => $this->tif,
-      'qry' => $this->sqrl->get_path($this->sqrl->PATH_CLIENT, $grc),//'/sqrl?nut=' . $this->sqrl->get_nut(),//
+      'qry' => $this->sqrl->get_client_path($grc),
       'sfn' => $this->site_name(),
     );
     $response += $this->response;
-
-    // TODO: How do we make the following secure?
-    if ($this->sqrl->is_secure_connection_available()) {
-      $response['lnk'] = $this->sqrl->get_path('action');
-    }
 
     if (!$grc) {
       $msg = $this->message;
@@ -566,7 +558,7 @@ abstract class Client extends Common {
       header($key . ': ' . $value);
     }
     if ($grc) {
-      print($base64 . self::CRLF);
+      print($base64);
     }
     else {
       print('server=' . $base64 . self::CRLF);
